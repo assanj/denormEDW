@@ -18,10 +18,11 @@ declare
     v_pack_name	varchar := 'rebuid_objects_core';
     v_ok 		integer := 1;
     v_row_count integer := 0;
+   
  -- p_check integer     := 1;  -- параметр для запуска без данных в режиме тестироания
    
-    p_level_one integer := 0;
-    p_ccd_claim_policy_incident_exposure integer := 0;
+    p_level_one integer := 1;
+    p_ccd_claim_policy_incident_exposure integer := 1;
    
 begin
 get diagnostics v_row_count := ROW_COUNT;
@@ -291,8 +292,8 @@ ANALYZE actuary.ccc_claim_exposure;
 
 
 -- 1.5. Таблица транзакций по убыткам (Claim Transactions)
-DROP TABLE IF EXISTS actuary.ccc_claim_transaction;
-CREATE TABLE actuary.ccc_claim_transaction AS
+DROP TABLE IF EXISTS actuary.ccc_claim_transaction1;
+CREATE TABLE actuary.ccc_claim_transaction1 AS
 SELECT 
     status,
     paymenttype,
@@ -338,6 +339,55 @@ WHERE retired = 0
   AND period_end = '9999-12-31'::date 
   AND p_check = 1;
 
+DROP TABLE IF EXISTS actuary.ccc_claim_transaction;
+CREATE TABLE actuary.ccc_claim_transaction AS 
+SELECT 
+    t.status,
+    t.paymenttype,
+    t.claim_check_id,
+    t.updatetime,
+    t.createtime,
+    t.retired,
+    t.costcategory AS costcategory_code, --kms
+    cc."name" AS costcategory_name,       --kms
+    t.costtype AS costtype_code,         --kms
+    ct."name" AS costtype_name,           --kms
+    t.doesnoterodereserves,
+    t.claim_id,
+    t.claim_exposure_id,
+    t.subtype,
+    t.claim_reserveline_id,
+    t.claim_transaction_id,
+    t.reportingforexamount,
+    t.claimforexamount,
+    t.transactionamount,
+    t.approvaldate,
+    t.hash,
+    t.period_start,
+    t.period_end,
+    t.value_cur,
+    t.value_rub,
+    t.value_amt,
+    t.rej_flag,
+    t.value_date,
+    t.is_harm_life_health,
+    t.deductible_amt,
+    t.deductible_rub,
+    t.operation_cur,
+    t.operation_amt,
+    t.linecategory,
+    t.operation_code,
+    t.operation_name,
+    t.updated_ts,
+    t.writeoff_rzu_amt,
+    t.writeoff_rzu_date,
+    t.key_id,
+    t.sysmoment__claim_transaction
+FROM actuary.ccc_claim_transaction1 t
+LEFT JOIN core.claim_costcategory cc ON cc.code = t.costcategory AND cc.retired = 0
+LEFT JOIN core.claim_costtype ct ON ct.code = t.costtype AND ct.retired = 0; 
+ 
+ 
 CREATE INDEX IF NOT EXISTS ccc_claim_transaction_claim_id_idx ON actuary.ccc_claim_transaction (claim_id);
 CREATE INDEX IF NOT EXISTS ccc_claim_transaction_claim_exposure_id_idx ON actuary.ccc_claim_transaction (claim_exposure_id);
 
@@ -347,8 +397,8 @@ ANALYZE actuary.ccc_claim_transaction;
 
 
 -- 1.7. Таблица чеков/выплат по убыткам (Claim Checks)
-DROP TABLE IF EXISTS actuary.ccc_claim_check;
-CREATE TABLE actuary.ccc_claim_check AS
+DROP TABLE IF EXISTS actuary.ccc_claim_check1;
+CREATE TABLE actuary.ccc_claim_check1 AS
 SELECT 
     claim_check_id,
     claim_id,
@@ -397,7 +447,58 @@ FROM core.claim_check
 WHERE retired = 0 
   AND period_end = '9999-12-31'::date 
   AND p_check = 1;
-
+ 
+DROP TABLE IF EXISTS actuary.ccc_claim_check;
+CREATE TABLE actuary.ccc_claim_check AS 
+SELECT 
+    chk.claim_check_id,
+    chk.claim_id,
+    chk.checknumber,
+    chk.paymentstatus,
+    chk.approvaldate,
+    chk.lastpaymentdate,
+    chk.firstpaymentdate,
+    chk.retired,
+    chk.subrogationavailable,
+    chk.beneficiary,
+    chk.refundcategory as refundcategory_code, --kms
+    cf."name" as refundcategory_name, --kms
+    chk.documentdate,
+    chk.documentnum,
+    chk.totalpaymentamountvalue,
+    chk.paymentdetails,
+    chk.invoice_id,
+    chk.createtime,
+    chk.postingdate,
+    chk.period_start,
+    chk.period_end,
+    chk.hash,
+    chk.is_pvu_fact_null,
+    chk.laydowndate,
+    chk.unpaidpremium_cur,
+    chk.unpaidpremium_amt,
+    chk.unpaidpremium_rub,
+    chk.paymentsumfixed,
+    chk.is_suit,
+    chk.is_court_prepaid,
+    chk.valid,
+    chk.buh_court_order_date,
+    chk.payment_date,
+    chk.claim_courtorder_id,
+    chk.doubledebiting_date,
+    chk.is_doubledebiting,
+    chk.claim_matter_id,
+    chk.previouschecknumber,
+    chk.pvu_payment_operation_date,
+    chk.currency_rate_date,
+    chk.updated_ts,
+    chk.is_ombudsman_resolution,
+    chk.key_id,
+    CURRENT_TIMESTAMP::TIMESTAMP AS sysmoment__claim_check
+FROM actuary.ccc_claim_check1 chk
+JOIN core.claim_refundcategory cf ON cf.code = chk.refundcategory and cf.retired = 0;
+ 
+ 
 CREATE INDEX IF NOT EXISTS ccc_claim_check_claim_id_idx ON actuary.ccc_claim_check (claim_id);
 CREATE unique INDEX IF NOT EXISTS ccc_claim_check_claim_check_id_idx ON actuary.ccc_claim_check (claim_check_id);
 ANALYZE actuary.ccc_claim_check;
@@ -691,8 +792,8 @@ SELECT
     ctx.updatetime AS updatetime__claim_transaction,
     ctx.createtime AS createtime__claim_transaction,
     ctx.retired AS retired__claim_transaction,
-    ctx.costcategory,
-    ctx.costtype,
+    ctx.costcategory_name, --kms
+    ctx.costtype_name,  --kms
     ctx.doesnoterodereserves,
     ctx.claim_id,
     ctx.claim_exposure_id,
@@ -734,7 +835,7 @@ SELECT
     ch.retired AS retired__claim_check,
     ch.subrogationavailable,
     ch.beneficiary,
-    ch.refundcategory,
+    ch.refundcategory_name, --kms
     ch.documentdate,
     ch.documentnum,
     ch.totalpaymentamountvalue,
@@ -792,8 +893,8 @@ SELECT
     txc.updatetime__claim_transaction AS updatetime__claim_transaction,
     txc.createtime__claim_transaction AS createtime__claim_transaction,
     txc.retired__claim_transaction AS retired__claim_transaction,
-    txc.costcategory,
-    txc.costtype,
+    txc.costcategory_name, --kms
+    txc.costtype_name, --kms
     txc.doesnoterodereserves,
     txc.subtype__claim_transaction AS subtype__claim_transaction,
     txc.claim_reserveline_id,
@@ -833,7 +934,7 @@ SELECT
     txc.retired__claim_check,
     txc.subrogationavailable,
     txc.beneficiary,
-    txc.refundcategory,
+    txc.refundcategory_name, --kms
     txc.documentdate,
     txc.documentnum,
     txc.totalpaymentamountvalue,
