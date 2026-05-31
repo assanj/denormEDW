@@ -522,7 +522,9 @@ if p_ccd_claim_policy_incident_exposure = 1 then
  *   2.1. Объединение Убыток + Полис
  *   2.2. Добавление Инцидента к предыдущему результату ccd_claim_policy
  *   2.3. Добавление Покрытия к предыдущему результату ccd_claim_policy_incident
- *   2.4. Добавление Транзакций к предыдущему результату ccd_claim_policy_incident_exposure
+ *   2.4. Объединение транзакций и чеков (ccc_claim_transaction_check)
+ *   2.5. Добавление Транзакций (с чеками) к предыдущему результату ccd_claim_policy_incident_exposure
+ *   2.6. Добавление Судебных дел к предыдущему результату ccd_claim_policy_incident_exposure_transaction
  */
 
 -- 2.1. Объединение Убыток + Полис
@@ -1038,6 +1040,95 @@ GET DIAGNOSTICS v_row_count = ROW_COUNT;
 PERFORM actuary.logz(v_pack_name, 'rebuid_objects_core', 'finished', 'step100', v_row_count);
 
 raise notice '>> все объекты денормализаций убытков по ядру @EDW успешно пересобраны по скрипту <<';
+
+/*
+ Мэппинг refundcategory:
+ id   |code              |name                               |engname                  |retired|updated_ts|
+-----+------------------+-----------------------------------+-------------------------+-------+----------+
+10001|None              |Нет                                |Common payment           |      0|          |
+10002|STOAPayment       |Выплата по счету (СТОА, РАТ, др.)  |STOA Payment             |      0|          |
+10003|Adjudgement       |Выплата по исполнительному листу   |Adjudgement              |      0|          |
+10004|OtherInsurer      |Претензия/Требование от другой СК  |Other Insurer Payment    |      0|          |
+10005|PaymentAgreement  |Выплата по Соглашению              |Выплата по Соглашению    |      0|          |
+10006|PaymentBeforeCourt|Выплата до решения суда            |Viplata do resheniya suda|      0|          |
+10007|PretrialPretension|Досудебная претензия               |Dosudebnay pretensia     |      0|          |
+10008|Pretension        |Претензия                          |Simple pretension        |      0|          |
+10009|FeeFU             |Взносы за рассмотрение обращений ФУ|FeeFU                    |      1|          |
+10010|OmbudPayment      |Выплата по обращению/решению ФУ    |OmbudPayment             |      0|          |
+10011|OmbcertPayment    |Выплата по удостоверению ФУ        |OmbcertPayment           |      0|          |
+
+
+ Мэппинг claim_costtype:
+id   |code                |name                                  |engname                |retired|updated_ts|
+-----+--------------------+--------------------------------------+-----------------------+-------+----------+
+10005|retFranchise        |Возвратная франшиза                   |Return Franchise       |      0|          |
+10006|penalty             |Неустойка                             |Penalty                |      0|          |
+10007|PaymentForServicesFU|Взносы за рассмотрение обращений от ФУ|Payment for services FU|      0|          |
+    1|claimcost           |Стоимость убытка                      |ClaimCost              |      0|          |
+10002|unspecified         |Не указан тип расходов                |Unspecified Cost Type  |      1|          |
+10001|aoexpense           |Расходы по урегулированию             |Expense - A and O      |      0|          |
+10003|dccexpense          |Расходы на правовую защиту            |Expense-DandCC         |      0|          |
+10004|subrogation         |Суброгация                            |Subrogation            |      0|          |
+
+ Мэппинг claim_costtype:
+ 
+ id   |code                 |name                                         |engname                                           |retired|updated_ts|
+-----+---------------------+---------------------------------------------+--------------------------------------------------+-------+----------+
+10001|002                  |ДО                                           |Additional equipment                              |      0|          |
+10046|011                  |Комиссия                                     |Commission                                        |      0|          |
+10047|010                  |Моральный вред                               |Moral damage                                      |      0|          |
+10050|015                  |Расходы на независимую юридическую экспертизу|Raskhody na nezavisimuiu iuridicheskuiu ekspertizu|      0|          |
+10051|014                  |Расходы на проведение сюрвейерского осмотра  |Raskhody na provedenie siurveierskogo osmotra     |      0|          |
+10052|017                  |Расходы на расчистку                         |Raskhody na raschistku                            |      0|          |
+10053|016                  |Расходы на специализированные экспертизы     |Raskhody na spetsializirovannye ekspertizy        |      0|          |
+10045|009                  |Пени/просрочки                               |fine/expiration                                   |      0|          |
+10048|012                  |Расходы экспертов                            |Expenses for experts                              |      0|          |
+10037|addnl_living_expenses|Дополнительные расходы на проживание         |Additional Living Expenses                        |      1|          |
+10038|baggage              |Багаж                                        |Baggage                                           |      1|          |
+10039|contents             |Содержание                                   |Contents                                          |      1|          |
+10040|ems                  |Аварийные службы                             |Emergency Services                                |      1|          |
+10041|property_inspection  |Проверка имущества                           |Property Inspection                               |      1|          |
+10042|property_repair      |Ремонт имущества                             |Property Repair                                   |      1|          |
+10043|trip_cancel_delay    |Поездка                                      |Trip                                              |      1|          |
+10049|013                  |НДФЛ                                         |NDFL                                              |      0|          |
+10035|006                  |Судебные расходы и издержки                  |Legal expenses                                    |      0|          |
+10036|007                  |Штраф/ неустойка                             |Penalty                                           |      0|          |
+10044|008                  |Исполнительский сбор                         |Enforcement fee                                   |      0|          |
+10002|004                  |Другое                                       |Other                                             |      0|          |
+10003|003                  |Человек                                      |Person                                            |      0|          |
+10004|005                  |Имущество                                    |Property                                          |      0|          |
+10005|001                  |ТС                                           |Vehicle                                           |      0|          |
+    1|unspecified          |Не указано Категория стоимости               |Unspecified Cost Category                         |      1|          |
+10006|body                 |авто Деталь                                  |Auto body                                         |      1|          |
+10007|autoparts            |авто часть                                   |Auto parts                                        |      1|          |
+10008|burial               |Расходы на ритуальные услуги                 |Burial expenses                                   |      1|          |
+10009|casemgmt             |Case management                              |Case management                                   |      1|          |
+10010|death                |Смерть Льготы                                |Death benefits                                    |      1|          |
+10011|autoglass            |стекло                                       |Glass                                             |      1|          |
+10012|indemnity            |Возмещение                                   |Indemnity                                         |      1|          |
+10013|labor                |труд                                         |Labor                                             |      1|          |
+10014|legal                |юридический                                  |Legal                                             |      1|          |
+10015|lifetime             |Пожизненные льготы                           |Lifetime benefits                                 |      1|          |
+10016|lostwages            |Невозможность получать заработную плату      |Lost wages                                        |      1|          |
+10017|medical              |медицинский                                  |Medical                                           |      1|          |
+10018|mileage              |пробег reimbursement                         |Mileage reimbursement                             |      1|          |
+10019|wcmileage            |пробег reimbursement-WC                      |Mileage reimbursement-WC                          |      1|          |
+10020|other                |Другое                                       |Other                                             |      1|          |
+10021|ppd                  |Постоянная частичная инвалидность            |Permanent partial disability                      |      1|          |
+10022|ptd                  |Постоянная полная инвалидность               |Permanent total disability                        |      1|          |
+10023|reimbursement        |Компенсирование                              |Reimbursement                                     |      1|          |
+10024|rental               |Прокат                                       |Rental                                            |      1|          |
+10025|salvage              |Работа с годными остатками                   |Salvage                                           |      1|          |
+10026|settlement           |Урегулирование                               |Settlement                                        |      1|          |
+10027|supplemental         |Дополнительный заработок                     |Supplemental earnings                             |      1|          |
+10028|tpd                  |Временная частичная инвалидность             |Temporary partial disability                      |      1|          |
+10029|ttd                  |Временная полная инвалидность                |Temporary total disability                        |      1|          |
+10030|towing               |Эвакуация                                    |Towing                                            |      1|          |
+10031|inspection           |ТСОсмотр                                     |Vehicle inspection                                |      1|          |
+10032|vocational           |Профессиональный                             |Vocational                                        |      1|          |
+10033|court                |Оплата в судебном порядке                    |Court Payment                                     |      0|          |
+10034|voluntary            |Добровольная оплата                          |Voluntary Payment                                 |      0|          |
+ */
 
 end $function$
 ;
