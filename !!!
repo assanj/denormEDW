@@ -13,3 +13,219 @@ ON actuary.ccc_claim_transaction (claim_transaction_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS ccc_claim_matter_claim_matter_id_idx 
 ON actuary.ccc_claim_matter (claim_matter_id);
+
+
+
+-- 2.5. Добавление Transact-ий (объединенных с чеками) к предыдущему результату ccd_claim_policy_incident_exposure
+DROP TABLE IF EXISTS actuary.ccd_claim_policy_incident_exposure_transaction;
+CREATE TABLE actuary.ccd_claim_policy_incident_exposure_transaction AS
+SELECT 
+    t3.*, 
+    -- Поля из объединенной таблицы транзакция+чек
+    txc.status__claim_transaction AS status__claim_transaction,
+    txc.paymenttype,
+    txc.claim_check_id,
+    txc.updatetime__claim_transaction AS updatetime__claim_transaction,
+    txc.createtime__claim_transaction AS createtime__claim_transaction,
+    txc.retired__claim_transaction AS retired__claim_transaction,
+    txc.costcategory,
+    txc.costtype,
+    txc.doesnoterodereserves,
+    txc.subtype__claim_transaction AS subtype__claim_transaction,
+    txc.claim_reserveline_id,
+    txc.claim_transaction_id,
+    txc.reportingforexamount,
+    txc.claimforexamount,
+    txc.transactionamount,
+    txc.approvaldate__transaction AS approvaldate,
+    txc.hash__claim_transaction AS hash__claim_transaction,
+    txc.period_start__claim_transaction AS period_start__claim_transaction,
+    txc.period_end__claim_transaction AS period_end__claim_transaction,
+    txc.value_cur__claim_transaction AS value_cur__claim_transaction,
+    txc.value_rub__claim_transaction AS value_rub__claim_transaction,
+    txc.value_amt__claim_transaction AS value_amt__claim_transaction,
+    txc.rej_flag,
+    txc.value_date__claim_transaction AS value_date__claim_transaction,
+    txc.is_harm_life_health,
+    txc.deductible_amt,
+    txc.deductible_rub,
+    txc.operation_cur,
+    txc.operation_amt,
+    txc.linecategory,
+    txc.operation_code,
+    txc.operation_name,
+    txc.updated_ts__claim_transaction AS updated_ts__claim_transaction,
+    txc.writeoff_rzu_amt,
+    txc.writeoff_rzu_date,
+    txc.key_id__claim_transaction AS key_id__claim_transaction,
+    txc.sysmoment__claim_transaction,
+    
+    -- Поля из чека (дополнительная информация)
+    txc.checknumber,
+    txc.paymentstatus,
+    txc.approvaldate__check,
+    txc.lastpaymentdate,
+    txc.firstpaymentdate,
+    txc.retired__claim_check,
+    txc.subrogationavailable,
+    txc.beneficiary,
+    txc.refundcategory,
+    txc.documentdate,
+    txc.documentnum,
+    txc.totalpaymentamountvalue,
+    txc.paymentdetails,
+    txc.invoice_id,
+    txc.createtime__claim_check,
+    txc.postingdate,
+    txc.period_start__claim_check,
+    txc.period_end__claim_check,
+    txc.hash__claim_check,
+    txc.is_pvu_fact_null,
+    txc.laydowndate,
+    txc.unpaidpremium_cur,
+    txc.unpaidpremium_amt,
+    txc.unpaidpremium_rub,
+    txc.paymentsumfixed,
+    txc.is_suit__check,
+    txc.is_court_prepaid,
+    txc.valid__claim_check,
+    txc.buh_court_order_date,
+    txc.payment_date,
+    txc.claim_courtorder_id,
+    txc.doubledebiting_date,
+    txc.is_doubledebiting,
+    txc.claim_matter_id_from_check,
+    txc.previouschecknumber,
+    txc.pvu_payment_operation_date,
+    txc.currency_rate_date,
+    txc.updated_ts__claim_check,
+    txc.is_ombudsman_resolution,
+    txc.key_id__claim_check,
+    txc.sysmoment__claim_check
+
+FROM actuary.ccd_claim_policy_incident_exposure t3
+LEFT JOIN actuary.ccc_claim_transaction_check txc 
+  ON t3.claim_id = txc.claim_id 
+ AND t3.claim_exposure_id = txc.claim_exposure_id;
+
+CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_id);
+CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_incident_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_incident_id);
+CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_exposure_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_exposure_id);
+-- проверка, что мы всё еще в уникальной транзакции:
+CREATE UNIQUE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_transaction_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_transaction_id);
+
+ANALYZE actuary.ccd_claim_policy_incident_exposure_transaction;
+
+
+-- Шаг 2.6. Добавление судебных дел к предыдущему результату ccd_claim_policy_incident_exposure_transaction
+DROP TABLE IF EXISTS actuary.ccd_claim_policy_incident_exposure_transaction_matter;
+CREATE TABLE actuary.ccd_claim_policy_incident_exposure_transaction_matter AS
+SELECT 
+    t4.*, -- Все поля, полученные на Шаге 2.5
+    -- Поля из ccc_claim_matter
+    cm.claim_matter_id,
+    cm.casenumber,
+    cm.is_subrogation_exists,
+    cm.is_subrogation_flag,
+    cm.subrogation_type,
+    cm.is_zozpp,
+    cm.suit_stage,
+    cm.pd_suit_stage,
+    cm.suit_type,
+    cm.courttype,
+    cm.courtname,
+    cm.courtregion,
+    cm.courtrayon,
+    cm.courtnaselpunkt,
+    cm.representative,
+    cm.plaintiff,
+    cm.responsible,
+    cm.other,
+    cm.plaintiff_type,
+    cm.responsible_type,
+    cm.other_type,
+    cm.suit_work_begin_start_date,
+    cm.suit_work_begin_end_date,
+    cm.before_suit_begin_date,
+    cm.suitacceptdate,
+    cm.first_suitaccsum_all,
+    cm.first_suitaccsum_main,
+    cm.first_suitaccsum_penalty,
+    cm.first_suitaccsum_other,
+    cm.first_suitaccsum_poshlina,
+    cm.first_suitaccsum_lawer,
+    cm.first_suitaccsum_outlay,
+    cm.first_suitaccsum_expcrtsum,
+    cm.first_suitaccsum_expplnsum,
+    cm.suitacceptedsum_all,
+    cm.suitapprovedsum_all,
+    cm.suitacceptedsum_main,
+    cm.suitapprovedsum_main,
+    cm.suitacceptedsum_penalty,
+    cm.suitapprovedsum_penalty,
+    cm.suitacceptedsum_other,
+    cm.suitapprovedsum_other,
+    cm.suitacceptedsum_poshlina,
+    cm.suitapprovedsum_poshlina,
+    cm.suitacceptedsum_lawer,
+    cm.suitapprovedsum_lawer,
+    cm.suitacceptedsum_outlay,
+    cm.suitapprovedsum_outlay,
+    cm.suitacceptedsum_expcourtsum,
+    cm.suitapprovedsum_expcourtsum,
+    cm.suitacceptedsum_expplainsum,
+    cm.suitapprovedsum_expplainsum,
+    cm.suitapproveddate,
+    cm.sittingdate,
+    cm.courtsittingresult,
+    cm.is_suit_appr_sum_main_not_def,
+    cm.appealsenddate,
+    cm.appealdeterminationdate,
+    cm.isrgsappeal,
+    cm.suitappealsum_all,
+    cm.suitappealsum_main,
+    cm.suitappealsum_penalty,
+    cm.suitappealsum_other,
+    cm.suitappealsum_poshlina,
+    cm.suitappealsum_lawer,
+    cm.suitappealsum_outlay,
+    cm.suitappealsum_expcourtsum,
+    cm.suitappealsum_expplainsum,
+    cm.is_suit_apl_sum_main_not_def,
+    cm.appealcourtname,
+    cm.claim_state_region_id,
+    cm.period_start AS period_start__claim_matter,
+    cm.period_end AS period_end__claim_matter,
+    cm.retired AS retired__claim_matter,
+    cm.createtime_act_prav_poz,
+    cm.min_act_pre_reject_date,
+    cm.min_act_reject_date,
+    cm.min_return_pkd_date,
+    cm.pretrial_pretension_date,
+    cm.inc_subtype_name AS inc_subtype_name__claim_matter,
+    cm.arm_ekis_lossdatecode,
+    cm.is_incident_id_exists,
+    cm.suit_work_end_date1_min,
+    cm.suit_work_end_date2_min,
+    cm.suit_work_end_date1_max,
+    cm.suit_work_end_date2_max,
+    cm.updated_ts AS updated_ts__claim_matter,
+    cm.key_id AS key_id__claim_matter,
+    cm.sysmoment__claim_matter
+FROM actuary.ccd_claim_policy_incident_exposure_transaction t4
+LEFT JOIN actuary.ccc_claim_matter cm 
+  ON t4.claim_id = cm.claim_id 
+ AND t4.claim_incident_id = cm.claim_incident_id;
+
+CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_matter_claim_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction_matter (claim_id);
+ANALYZE actuary.ccd_claim_policy_incident_exposure_transaction_matter;
+
+COMMENT ON TABLE actuary.ccc_claim_transaction_check IS 
+'2.4. Промежуточный слой: Транзакции + Чеки. Объединяет ccc_claim_transaction и ccc_claim_check по ключу claim_check_id.';
+
+COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction IS 
+'2.5. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции (с чеками). Построена на базе ccd_claim_policy_incident_exposure с добавлением данных ccc_claim_transaction_check по ключам claim_id и claim_exposure_id.';
+
+COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction_matter IS 
+'2.6. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции + Судебные дела. Построена на базе ccd_claim_policy_incident_exposure_transaction с добавлением судебных исков ccc_claim_matter по ключам claim_id и claim_incident_id.';
+
