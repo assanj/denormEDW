@@ -19,6 +19,10 @@ declare
     v_ok 		integer := 1;
     v_row_count integer := 0;
  -- p_check integer := 1;
+   
+    p_level_one integer := 0;
+    p_ccd_claim_policy_incident_exposure integer := 0;
+   
 begin
 get diagnostics v_row_count := ROW_COUNT;
 PERFORM actuary.logz(v_pack_name, 'rebuid_objects_core', 'started', 'step00', v_row_count);
@@ -26,6 +30,7 @@ PERFORM actuary.logz(v_pack_name, 'rebuid_objects_core', 'started', 'step00', v_
 
 --PROMT: строго никогда не меняй названия/последовательность таблиц/полей без моего указания.
 
+if p_level_one = 1 then
 /*
  * 1-й Слой среза с ядра актуальных данных для уменьшения размера (actuary.ccc_*)
  *   1.1. Таблица убытков (Claims)
@@ -91,7 +96,7 @@ WHERE retired = 0
   AND period_end = '9999-12-31'::date 
   AND p_check = 1;
 
-CREATE INDEX IF NOT EXISTS ccc_claim1_claim_id_idx ON actuary.ccc_claim1 (claim_id);
+CREATE unique INDEX IF NOT EXISTS ccc_claim1_claim_id_idx ON actuary.ccc_claim1 (claim_id);
 CREATE INDEX IF NOT EXISTS ccc_claim1_claim_policy_id_idx ON actuary.ccc_claim1 (claim_policy_id);
 ANALYZE actuary.ccc_claim1;
 
@@ -127,7 +132,7 @@ left join actuary.ccc_claim_counterparty_proc_insured cpt on cp.claim_id = cpt.c
 left join core.claim_losscause cl on cp.losscause = cl.code and cl.period_end = '9999-12-31'::date
 ;
 
-CREATE INDEX IF NOT EXISTS ccc_claim_claim_id_idx ON actuary.ccc_claim (claim_id);
+CREATE unique INDEX IF NOT EXISTS ccc_claim_claim_id_idx ON actuary.ccc_claim (claim_id);
 CREATE INDEX IF NOT EXISTS ccc_claim_claim_policy_id_idx ON actuary.ccc_claim (claim_policy_id);
 ANALYZE actuary.ccc_claim;
 
@@ -184,7 +189,7 @@ WHERE retired = 0
   AND period_end = '9999-12-31'::date 
   AND p_check = 1;
 
-CREATE INDEX IF NOT EXISTS ccc_claim_policy_claim_policy_id_idx ON actuary.ccc_claim_policy (claim_policy_id);
+CREATE unique INDEX IF NOT EXISTS ccc_claim_policy_claim_policy_id_idx ON actuary.ccc_claim_policy (claim_policy_id);
 ANALYZE actuary.ccc_claim_policy;
 
 
@@ -239,7 +244,7 @@ WHERE retired = 0
   AND p_check = 1;
 
 CREATE INDEX IF NOT EXISTS ccc_claim_incident_claim_id_idx ON actuary.ccc_claim_incident (claim_id);
-CREATE INDEX IF NOT EXISTS ccc_claim_incident_claim_incident_id_idx ON actuary.ccc_claim_incident (claim_incident_id);
+CREATE unique INDEX IF NOT EXISTS ccc_claim_incident_claim_incident_id_idx ON actuary.ccc_claim_incident (claim_incident_id);
 
 ANALYZE actuary.ccc_claim_incident;
 
@@ -281,7 +286,7 @@ WHERE retired = 0
 
 CREATE INDEX IF NOT EXISTS ccc_claim_exposure_claim_id_idx ON actuary.ccc_claim_exposure (claim_id);
 CREATE INDEX IF NOT EXISTS ccc_claim_exposure_claim_incident_id_idx ON actuary.ccc_claim_exposure (claim_incident_id);
-CREATE INDEX IF NOT EXISTS ccc_claim_exposure_claim_exposure_id_idx ON actuary.ccc_claim_exposure (claim_exposure_id);
+CREATE unique INDEX IF NOT EXISTS ccc_claim_exposure_claim_exposure_id_idx ON actuary.ccc_claim_exposure (claim_exposure_id);
 ANALYZE actuary.ccc_claim_exposure;
 
 
@@ -391,7 +396,7 @@ WHERE retired = 0
   AND p_check = 1;
 
 CREATE INDEX IF NOT EXISTS ccc_claim_check_claim_id_idx ON actuary.ccc_claim_check (claim_id);
-CREATE INDEX IF NOT EXISTS ccc_claim_check_claim_check_id_idx ON actuary.ccc_claim_check (claim_check_id);
+CREATE unique INDEX IF NOT EXISTS ccc_claim_check_claim_check_id_idx ON actuary.ccc_claim_check (claim_check_id);
 ANALYZE actuary.ccc_claim_check;
 
 
@@ -500,11 +505,11 @@ CREATE INDEX IF NOT EXISTS ccc_claim_matter_claim_id_idx ON actuary.ccc_claim_ma
 CREATE INDEX IF NOT EXISTS ccc_claim_matter_claim_incident_id_idx ON actuary.ccc_claim_matter (claim_incident_id);
 ANALYZE actuary.ccc_claim_matter;
 
+end if; --p_level_one
 
 
 
-
-
+if p_ccd_claim_policy_incident_exposure = 1 then
 
 /*
  * 2-й Слой денормализаций (ассоциаторов) (actuary.ccd_*) строится на первом слое
@@ -570,7 +575,6 @@ CREATE INDEX IF NOT EXISTS ccd_claim_policy_claim_id_idx ON actuary.ccd_claim_po
 ANALYZE actuary.ccd_claim_policy;
 
 
-if 1=1 then
 -- 2.2. Добавление Инцидента к предыдущему результату ccd_claim_policy
 DROP TABLE IF EXISTS actuary.ccd_claim_policy_incident;
 CREATE TABLE actuary.ccd_claim_policy_incident AS
@@ -660,8 +664,12 @@ LEFT JOIN actuary.ccc_claim_exposure ce
 
 CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_claim_id_idx ON actuary.ccd_claim_policy_incident_exposure (claim_id);
 CREATE INDEX IF NOT exists ccd_claim_policy_incident_exposure_claimnumber_idx ON actuary.ccd_claim_policy_incident_exposure (claimnumber);
+-- для проверки, что мы ещё в уникальном элементе
+CREATE UNIQUE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_claim_exposure_id_idx ON actuary.ccd_claim_policy_incident_exposure (claim_exposure_id);
 
 ANALYZE actuary.ccd_claim_policy_incident_exposure;
+
+end if; --p_ccd_claim_policy_incident_exposure
 
 
 -- 2.4. Добавление Transact-ий к предыдущему результату ccd_claim_policy_incident_exposure
@@ -872,7 +880,6 @@ COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction_matter I
 GET DIAGNOSTICS v_row_count = ROW_COUNT;
 PERFORM actuary.logz(v_pack_name, 'rebuid_objects_core', 'finished', 'step100', v_row_count);
 
-end if;
 raise notice '>> все объекты денормализаций убытков по ядру @EDW успешно пересобраны по скрипту <<';
 
 end $function$
