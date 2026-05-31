@@ -18,7 +18,7 @@ declare
     v_pack_name	varchar := 'rebuid_objects_core';
     v_ok 		integer := 1;
     v_row_count integer := 0;
- -- p_check integer := 1;
+ -- p_check integer     := 1;  -- параметр для запуска без данных в режиме тестироания
    
     p_level_one integer := 0;
     p_ccd_claim_policy_incident_exposure integer := 0;
@@ -31,7 +31,7 @@ PERFORM actuary.logz(v_pack_name, 'rebuid_objects_core', 'started', 'step00', v_
 --PROMT: строго никогда не меняй названия/последовательность таблиц/полей без моего указания.
 
 if p_level_one = 1 then
-/*
+/* Коммент к поревому слою:
  * 1-й Слой среза с ядра актуальных данных для уменьшения размера (actuary.ccc_*)
  *   1.1. Таблица убытков (Claims)
  *   1.2. Таблица полисов убытков (Claim Policies)
@@ -340,6 +340,9 @@ WHERE retired = 0
 
 CREATE INDEX IF NOT EXISTS ccc_claim_transaction_claim_id_idx ON actuary.ccc_claim_transaction (claim_id);
 CREATE INDEX IF NOT EXISTS ccc_claim_transaction_claim_exposure_id_idx ON actuary.ccc_claim_transaction (claim_exposure_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ccc_claim_transaction_claim_transaction_id_idx ON actuary.ccc_claim_transaction (claim_transaction_id);
+
 ANALYZE actuary.ccc_claim_transaction;
 
 
@@ -503,6 +506,9 @@ WHERE retired = 0
  -- Индексы и статистика для ccc_claim_matter
 CREATE INDEX IF NOT EXISTS ccc_claim_matter_claim_id_idx ON actuary.ccc_claim_matter (claim_id);
 CREATE INDEX IF NOT EXISTS ccc_claim_matter_claim_incident_id_idx ON actuary.ccc_claim_matter (claim_incident_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ccc_claim_matter_claim_matter_id_idx ON actuary.ccc_claim_matter (claim_matter_id);
+
 ANALYZE actuary.ccc_claim_matter;
 
 end if; --p_level_one
