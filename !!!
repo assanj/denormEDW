@@ -5,3 +5,11 @@ ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_transaction_id)
 
 CREATE UNIQUE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_claim_exposure_id_idx 
 ON actuary.ccd_claim_policy_incident_exposure (claim_exposure_id);
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS ccc_claim_transaction_claim_transaction_id_idx 
+ON actuary.ccc_claim_transaction (claim_transaction_id);
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS ccc_claim_matter_claim_matter_id_idx 
+ON actuary.ccc_claim_matter (claim_matter_id);
