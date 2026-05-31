@@ -1,3 +1,7 @@
 -- Индекс по ID транзакции (уникальный идентификатор записи в ccc_claim_transaction)
 CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_transaction_id_idx 
 ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_transaction_id);
+
+
+CREATE UNIQUE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_claim_exposure_id_idx 
+ON actuary.ccd_claim_policy_incident_exposure (claim_exposure_id);
