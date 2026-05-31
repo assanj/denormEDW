@@ -778,58 +778,103 @@ create unique INDEX IF NOT EXISTS ccc_claim_transaction_check_claim_transaction_
     
 ANALYZE actuary.ccc_claim_transaction_check;
 
--- 2.5. Добавление Transact-ий к предыдущему результату ccd_claim_policy_incident_exposure
+-- 2.5. Добавление Transact-ий (объединенных с чеками) к предыдущему результату ccd_claim_policy_incident_exposure
 DROP TABLE IF EXISTS actuary.ccd_claim_policy_incident_exposure_transaction;
 CREATE TABLE actuary.ccd_claim_policy_incident_exposure_transaction AS
 SELECT 
     t3.*, 
-    ctx.status AS status__claim_transaction,
-    ctx.paymenttype,
-    ctx.claim_check_id,
-    ctx.updatetime AS updatetime__claim_transaction,
-    ctx.createtime AS createtime__claim_transaction,
-    ctx.retired AS retired__claim_transaction,
-    ctx.costcategory,
-    ctx.costtype,
-    ctx.doesnoterodereserves,
-    ctx.subtype AS subtype__claim_transaction,
-    ctx.claim_reserveline_id,
-    ctx.claim_transaction_id,
-    ctx.reportingforexamount,
-    ctx.claimforexamount,
-    ctx.transactionamount,
-    ctx.approvaldate,
-    ctx.hash AS hash__claim_transaction,
-    ctx.period_start AS period_start__claim_transaction,
-    ctx.period_end AS period_end__claim_transaction,
-    ctx.value_cur AS value_cur__claim_transaction,
-    ctx.value_rub AS value_rub__claim_transaction,
-    ctx.value_amt AS value_amt__claim_transaction,
-    ctx.rej_flag,
-    ctx.value_date AS value_date__claim_transaction,
-    ctx.is_harm_life_health,
-    ctx.deductible_amt,
-    ctx.deductible_rub,
-    ctx.operation_cur,
-    ctx.operation_amt,
-    linecategory,
-    operation_code,
-    operation_name,
-    ctx.updated_ts AS updated_ts__claim_transaction,
-    ctx.writeoff_rzu_amt,
-    ctx.writeoff_rzu_date,
-    ctx.key_id AS key_id__claim_transaction,
-    ctx.sysmoment__claim_transaction
+    -- Поля из объединенной таблицы транзакция+чек
+    txc.status__claim_transaction AS status__claim_transaction,
+    txc.paymenttype,
+    txc.claim_check_id,
+    txc.updatetime__claim_transaction AS updatetime__claim_transaction,
+    txc.createtime__claim_transaction AS createtime__claim_transaction,
+    txc.retired__claim_transaction AS retired__claim_transaction,
+    txc.costcategory,
+    txc.costtype,
+    txc.doesnoterodereserves,
+    txc.subtype__claim_transaction AS subtype__claim_transaction,
+    txc.claim_reserveline_id,
+    txc.claim_transaction_id,
+    txc.reportingforexamount,
+    txc.claimforexamount,
+    txc.transactionamount,
+    txc.approvaldate__transaction AS approvaldate,
+    txc.hash__claim_transaction AS hash__claim_transaction,
+    txc.period_start__claim_transaction AS period_start__claim_transaction,
+    txc.period_end__claim_transaction AS period_end__claim_transaction,
+    txc.value_cur__claim_transaction AS value_cur__claim_transaction,
+    txc.value_rub__claim_transaction AS value_rub__claim_transaction,
+    txc.value_amt__claim_transaction AS value_amt__claim_transaction,
+    txc.rej_flag,
+    txc.value_date__claim_transaction AS value_date__claim_transaction,
+    txc.is_harm_life_health,
+    txc.deductible_amt,
+    txc.deductible_rub,
+    txc.operation_cur,
+    txc.operation_amt,
+    txc.linecategory,
+    txc.operation_code,
+    txc.operation_name,
+    txc.updated_ts__claim_transaction AS updated_ts__claim_transaction,
+    txc.writeoff_rzu_amt,
+    txc.writeoff_rzu_date,
+    txc.key_id__claim_transaction AS key_id__claim_transaction,
+    txc.sysmoment__claim_transaction,
+    
+    -- Поля из чека (дополнительная информация)
+    txc.checknumber,
+    txc.paymentstatus,
+    txc.approvaldate__check,
+    txc.lastpaymentdate,
+    txc.firstpaymentdate,
+    txc.retired__claim_check,
+    txc.subrogationavailable,
+    txc.beneficiary,
+    txc.refundcategory,
+    txc.documentdate,
+    txc.documentnum,
+    txc.totalpaymentamountvalue,
+    txc.paymentdetails,
+    txc.invoice_id,
+    txc.createtime__claim_check,
+    txc.postingdate,
+    txc.period_start__claim_check,
+    txc.period_end__claim_check,
+    txc.hash__claim_check,
+    txc.is_pvu_fact_null,
+    txc.laydowndate,
+    txc.unpaidpremium_cur,
+    txc.unpaidpremium_amt,
+    txc.unpaidpremium_rub,
+    txc.paymentsumfixed,
+    txc.is_suit__check,
+    txc.is_court_prepaid,
+    txc.valid__claim_check,
+    txc.buh_court_order_date,
+    txc.payment_date,
+    txc.claim_courtorder_id,
+    txc.doubledebiting_date,
+    txc.is_doubledebiting,
+    txc.claim_matter_id_from_check,
+    txc.previouschecknumber,
+    txc.pvu_payment_operation_date,
+    txc.currency_rate_date,
+    txc.updated_ts__claim_check,
+    txc.is_ombudsman_resolution,
+    txc.key_id__claim_check,
+    txc.sysmoment__claim_check
+
 FROM actuary.ccd_claim_policy_incident_exposure t3
-LEFT JOIN actuary.ccc_claim_transaction ctx 
-  ON t3.claim_id = ctx.claim_id 
- AND t3.claim_exposure_id = ctx.claim_exposure_id;
+LEFT JOIN actuary.ccc_claim_transaction_check txc 
+  ON t3.claim_id = txc.claim_id 
+ AND t3.claim_exposure_id = txc.claim_exposure_id;
 
 CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_id);
 CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_incident_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_incident_id);
 CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_exposure_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_exposure_id);
---проверка, что мы всё еще в уникальной транзакции:
-CREATE unique INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_transaction_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_transaction_id);
+-- проверка, что мы всё еще в уникальной транзакции:
+CREATE UNIQUE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_claim_transaction_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction (claim_transaction_id);
 
 ANALYZE actuary.ccd_claim_policy_incident_exposure_transaction;
 
@@ -838,8 +883,8 @@ ANALYZE actuary.ccd_claim_policy_incident_exposure_transaction;
 DROP TABLE IF EXISTS actuary.ccd_claim_policy_incident_exposure_transaction_matter;
 CREATE TABLE actuary.ccd_claim_policy_incident_exposure_transaction_matter AS
 SELECT 
-    t4.*, -- Все поля, полученные на Шаге 4 предыдущего уровня
-    -- Поля из c_claim_matter (повторяющиеся переименованы через __claim_matter)
+    t4.*, -- Все поля, полученные на Шаге 2.5
+    -- Поля из ccc_claim_matter
     cm.claim_matter_id,
     cm.casenumber,
     cm.is_subrogation_exists,
@@ -935,7 +980,11 @@ LEFT JOIN actuary.ccc_claim_matter cm
  AND t4.claim_incident_id = cm.claim_incident_id;
 
 CREATE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_matter_claim_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction_matter (claim_id);
+-- проверка, что мы всё еще в уникальной транзакции:
+CREATE UNIQUE INDEX IF NOT EXISTS ccd_claim_policy_incident_exposure_transaction_matter_transaction_id_idx ON actuary.ccd_claim_policy_incident_exposure_transaction_matter (claim_transaction_id);
 ANALYZE actuary.ccd_claim_policy_incident_exposure_transaction_matter;
+
+
 
 
 
@@ -975,12 +1024,14 @@ COMMENT ON TABLE actuary.ccd_claim_policy_incident IS
 COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure IS 
 '2.3. Денормализованная сущность: Убыток + Полис + Инцидент + Покрытие. Построена на базе ccd_claim_policy_incident с добавлением данных ccc_claim_exposure по ключам claim_id и claim_incident_id.';
 
+COMMENT ON TABLE actuary.ccc_claim_transaction_check IS 
+'2.4. Промежуточный слой: Транзакции + Чеки. Объединяет ccc_claim_transaction и ccc_claim_check по ключу claim_check_id.';
+
 COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction IS 
-'2.4. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции. Построена на базе ccd_claim_policy_incident_exposure с добавлением проводок ccc_claim_transaction по ключам claim_id и claim_exposure_id.';
+'2.5. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции (с чеками). Построена на базе ccd_claim_policy_incident_exposure с добавлением данных ccc_claim_transaction_check по ключам claim_id и claim_exposure_id.';
 
 COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction_matter IS 
-'2.5. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции + Судебные дела. Построена на базе ccd_claim_policy_incident_exposure_transaction с последовательным добавлением судебных исков ccc_claim_matter по ключам claim_id и claim_incident_id.';
-
+'2.6. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции + Судебные дела. Построена на базе ccd_claim_policy_incident_exposure_transaction с добавлением судебных исков ccc_claim_matter по ключам claim_id и claim_incident_id.';
 
 -- Логирование окончания работы
 GET DIAGNOSTICS v_row_count = ROW_COUNT;
