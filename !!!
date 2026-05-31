@@ -229,3 +229,16 @@ COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction IS
 COMMENT ON TABLE actuary.ccd_claim_policy_incident_exposure_transaction_matter IS 
 '2.6. Финальный ассоциативный слой: Убыток + Полис + Инцидент + Покрытие + Транзакции + Судебные дела. Построена на базе ccd_claim_policy_incident_exposure_transaction с добавлением судебных исков ccc_claim_matter по ключам claim_id и claim_incident_id.';
 
+
+/*
+ * 2-й Слой денормализаций (ассоциаторов) (actuary.ccd_*) строится на первом слое
+ *   2.1. Объединение Убыток + Полис
+ *   2.2. Добавление Инцидента к предыдущему результату ccd_claim_policy
+ *   2.3. Добавление Покрытия к предыдущему результату ccd_claim_policy_incident
+ *   2.4. Объединение транзакций и чеков (ccc_claim_transaction_check)
+ *   2.5. Добавление Транзакций (с чеками) к предыдущему результату ccd_claim_policy_incident_exposure
+ *   2.6. Добавление Судебных дел к предыдущему результату ccd_claim_policy_incident_exposure_transaction
+ */
+
+
+
