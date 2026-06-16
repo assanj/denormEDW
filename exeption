@@ -1,0 +1,30 @@
+For i = 0 To fieldCount - 1
+    If Not dwh_reader.IsDBNull(i) Then
+        fieldType = dwh_reader.GetDataTypeName(i)
+        Select Case fieldType
+            Case "int2"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetInt16(i)
+            Case "int4"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetInt32(i)
+            Case "int8"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetInt64(i)
+            Case "float4"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetFloat(i)
+            Case "float8"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetDouble(i)
+            Case "numeric"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetDecimal(i)
+            Case "date"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetDateTime(i)
+            Case "timestamp without time zone"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetDateTime(i)
+            Case "timestamp with time zone"
+                objExcel.Worksheets(0).Cells(j, i).Value = dwh_reader.GetDateTime(i)
+            Case Else
+                objExcel.Worksheets(0).Cells(j, i).Value = "'" & dwh_reader.GetString(i)   --- на этой строке возникает ошибка. как исправить
+                
+        End Select
+    End If
+Next i
+
+System.InvalidCastException: 'Не удалось привести тип объекта "System.Guid" к типу "System.String".'
