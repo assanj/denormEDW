@@ -28,3 +28,7 @@ For i = 0 To fieldCount - 1
 Next i
 
 System.InvalidCastException: 'Не удалось привести тип объекта "System.Guid" к типу "System.String".'
+
+
+    Case "uuid"
+        objExcel.Worksheets(0).Cells(j, i).Value = "'" & dwh_reader.GetGuid(i).ToString()
