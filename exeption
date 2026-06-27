@@ -32,3 +32,5 @@ System.InvalidCastException: 'Не удалось привести тип объ
 
     Case "uuid"
         objExcel.Worksheets(0).Cells(j, i).Value = "'" & dwh_reader.GetGuid(i).ToString()
+
+"У нас есть две таблицы: customers с колонками customer_id, email, is_active и orders с колонками order_id, buyer_email, created_at. Напиши запрос, который покажет все email-адреса активных клиентов, которые сделали заказ за последнюю неделю."
