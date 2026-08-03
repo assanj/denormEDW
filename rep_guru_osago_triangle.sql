@@ -21,6 +21,7 @@ declare
     v_max_accident_month varchar(10) := to_char(current_date, 'YYYYMM');
     v_months_count       integer := 60;
     p_check              integer := 1;
+    p____indent          integer := (3+.0)::integer;
 begin
 -- Логирование общего старта процедуры
 perform actuary.logz(v_pack_name, 'rep_guru_osago_triangle', 'started', 'step00', 0);
@@ -50,9 +51,9 @@ FROM (
         MAX(CASE WHEN is_direct_payout = 0 AND is_direct_payout_outgo__claim_exposure = 1 THEN 1 ELSE 0 END) AS IS_EXISTS_PVU_DIRECT
         */
      -- claim_incident_id, claim_exposure_id, is_direct_payout, is_direct_payout_outgo__claim_exposure,
-        max(CASE WHEN coalesce(is_direct_payout, 0) = 0 AND coalesce(is_direct_payout_outgo__claim_exposure, 0) = 0 THEN 1 ELSE 0 END) AS IS_EXISTS_NOT_PVU,         
-        max(CASE WHEN coalesce(is_direct_payout, 0) = 1 AND coalesce(is_direct_payout_outgo__claim_exposure, 0) = 0 THEN 1 ELSE 0 END) AS IS_EXISTS_PVU_RESPONSE,
-        max(CASE WHEN coalesce(is_direct_payout, 0) = 0 AND coalesce(is_direct_payout_outgo__claim_exposure, 0) = 1 THEN 1 ELSE 0 END) AS IS_EXISTS_PVU_DIRECT
+        max(CASE WHEN coalesce(is_direct_payout, 0) = 0 AND coalesce(is_direct_payout_outgo, 0) = 0 THEN 1 ELSE 0 END) AS IS_EXISTS_NOT_PVU,         
+        max(CASE WHEN coalesce(is_direct_payout, 0) = 1 AND coalesce(is_direct_payout_outgo, 0) = 0 THEN 1 ELSE 0 END) AS IS_EXISTS_PVU_RESPONSE,
+        max(CASE WHEN coalesce(is_direct_payout, 0) = 0 AND coalesce(is_direct_payout_outgo, 0) = 1 THEN 1 ELSE 0 END) AS IS_EXISTS_PVU_DIRECT
     FROM actuary.ccd_claim_policy_incident_exposure --core.claim_exposure
    WHERE lobcode = 'auto' 
       AND policytype IN ('ОСАГО', 'РМ ОСАГО') 
@@ -81,7 +82,7 @@ SELECT
  --   cp.new_regionname,
     cp.claim_level_risk,
     cp.claim_ins_type,
-    cp.lossdate,
+    cp.lossdate::date,
     
     is_pvu.is_pvu,
     'налл' as is_pvu_repsrv,  -- тестироавния токмо
@@ -100,7 +101,7 @@ SELECT
 	COALESCE(ort.accepted_for_reinsurance_main::text, 'нд') AS accepted_for_reinsurance_main,
     -777 AS osago_chain_number,
     
-    TO_CHAR(cp.period_start, 'YYYYMM') AS d1_month, 
+    TO_CHAR(cp.contractdate, 'YYYYMM') AS d1_month, 
     TO_CHAR(cp.lossdate, 'YYYYMM') AS accident_month
 FROM actuary.ccd_claim_policy cp
 JOIN actuary.rep_guru_osago_tr_is_pvu is_pvu ON is_pvu.claim_id = cp.claim_id
@@ -109,6 +110,7 @@ LEFT JOIN actuary.contract_ort_dimensions_is_claim_by_contract_id ort on ort.con
     WHERE lobcode = 'auto' 
       AND policytype IN ('ОСАГО', 'РМ ОСАГО') 
       AND lossdate >= '2016-01-01'::date 
+      and cp.claim_id like 'guru%' -----!!!!!!!!!!!!!!!
       AND (cp.extcompany IS NULL OR LOWER(cp.extinsurancecompany) LIKE '%капитал%страхован%' OR cp.iscapitalinsurancerelated = 1)
       and p_check = 1
      ;
@@ -138,8 +140,8 @@ FROM (
         program_code,
         project_name,
         program_name*/
-    FROM cdm_analysis_out.ac_osago_form1_h --_2604 --_2306
-    where rep_period >= (date_trunc('month', current_date - INTERVAL '1 month'))::date
+    FROM cdm_analysis_out.ac_osago_form1_h_2604 --_2306 ---------------!!!!!!!!!!!!!!!!!!!!!!!!<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+--    where rep_period >= (date_trunc('month', current_date - INTERVAL '1 month'))::date
 -- в пентахо стоит фильтр: where rep_period = date('s{p_REPORT_DATE}') --> where rep_period = date('2023-06-01') 
 --limit 100
     /*WHERE rep_period >= date_trunc('month', p#end_date)
@@ -176,7 +178,7 @@ SELECT
     cp.lossdate,
     
     cp.is_pvu,
-    cp.is_pvu_repsrv, -- тестироавния токмо
+   -- тестироавния токмо cp.is_pvu_repsrv, 
     
     cp.contract_option,
     cp.is_partner,
@@ -193,73 +195,378 @@ SELECT
     cp.accepted_for_reinsurance_main,
     cp.osago_chain_number,
     
-    -- Динамический кумулятивный разворот по 60 месяцам
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '1 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_1_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '2 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_2_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '3 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_3_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '4 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_4_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '5 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_5_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '6 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_6_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '7 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_7_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '8 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_8_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '9 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_9_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '10 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_10_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '11 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_11_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '12 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_12_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '13 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_13_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '14 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_14_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '15 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_15_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '16 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_16_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '17 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_17_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '18 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_18_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '19 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_19_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '20 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_20_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '21 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_21_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '22 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_22_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '23 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_23_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '24 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_24_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '25 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_25_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '26 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_26_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '27 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_27_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '28 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_28_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '29 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_29_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '30 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_30_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '31 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_31_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '32 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_32_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '33 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_33_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '34 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_34_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '35 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_35_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '36 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_36_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '37 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_37_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '38 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_38_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '39 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_39_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '40 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_40_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '41 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_41_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '42 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_42_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '43 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_43_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '44 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_44_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '45 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_45_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '46 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_46_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '47 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_47_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '48 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_48_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '49 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_49_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '50 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_50_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '51 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_51_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '52 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_52_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '53 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_53_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '54 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_54_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '55 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_55_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '56 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_56_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '57 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_57_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '58 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_58_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '59 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_59_month_11_approved,
-    SUM(CASE WHEN ra.costcategory NOT IN ('Выплата по исполнительному листу', 'Выплата до решения суда') AND ra.updated_ts__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '60 month' + ((3+.0)::integer || ' days')::INTERVAL THEN ra.transactionamount ELSE 0 END) AS plus_60_month_11_approved
+    -- Динамический кумулятивный разворот по 60 месяцам  ( p____indent => (3+.0)::integer)
+    
+       -- Резервы:
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '1 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_1_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '2 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_2_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '3 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_3_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '4 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_4_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '5 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_5_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '6 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_6_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '7 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_7_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '8 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_8_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '9 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_9_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '10 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_10_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '11 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_11_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '12 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_12_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '13 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_13_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '14 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_14_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '15 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_15_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '16 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_16_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '17 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_17_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '18 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_18_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '19 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_19_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '20 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_20_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '21 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_21_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '22 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_22_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '23 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_23_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '24 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_24_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '25 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_25_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '26 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_26_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '27 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_27_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '28 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_28_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '29 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_29_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '30 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_30_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '31 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_31_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '32 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_32_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '33 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_33_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '34 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_34_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '35 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_35_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '36 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_36_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '37 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_37_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '38 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_38_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '39 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_39_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '40 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_40_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '41 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_41_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '42 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_42_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '43 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_43_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '44 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_44_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '45 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_45_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '46 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_46_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '47 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_47_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '48 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_48_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '49 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_49_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '50 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_50_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '51 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_51_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '52 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_52_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '53 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_53_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '54 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_54_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '55 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_55_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '56 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_56_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '57 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_57_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '58 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_58_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '59 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_59_MONTH_11_RESERVE,
+       sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '60 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_60_MONTH_11_RESERVE,
+--======Вывплаты:
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '1 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_1_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '2 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_2_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '3 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_3_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '4 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_4_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '5 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_5_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '6 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_6_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '7 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_7_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '8 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_8_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '9 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_9_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '10 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_10_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '11 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_11_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '12 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_12_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '13 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_13_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '14 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_14_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '15 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_15_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '16 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_16_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '17 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_17_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '18 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_18_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '19 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_19_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '20 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_20_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '21 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_21_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '22 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_22_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '23 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_23_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '24 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_24_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '25 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_25_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '26 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_26_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '27 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_27_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '28 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_28_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '29 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_29_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '30 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_30_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '31 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_31_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '32 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_32_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '33 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_33_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '34 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_34_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '35 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_35_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '36 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_36_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '37 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_37_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '38 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_38_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '39 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_39_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '40 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_40_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '41 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_41_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '42 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_42_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '43 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_43_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '44 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_44_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '45 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_45_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '46 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_46_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '47 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_47_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '48 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_48_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '49 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_49_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '50 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_50_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '51 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_51_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '52 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_52_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '53 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_53_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '54 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_54_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '55 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_55_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '56 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_56_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '57 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_57_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '58 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_58_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '59 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_59_MONTH_11_APPROVED,
+sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '60 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_60_MONTH_11_APPROVED
+----==========
 FROM actuary.rep_guru_osago_tr_cp cp
 JOIN actuary.ccd_claim_policy_incident_exposure_transaction ra 
-  ON ra.claim_id = cp.claim_id
-WHERE ra.costtype = 'claimcost' --'Стоимость убытка'
-  AND DATE_TRUNC('day', ra.createtime__claim_transaction) <= ((3+.0)::integer || '.' || TO_CHAR(CURRENT_DATE, 'MM.YYYY'))::DATE
-  AND ra.costcategory <> 'Выплата по удостоверению ФУ'
+    ON ra.claim_id = cp.claim_id
+WHERE coalesce(paymentstatus, 'issued') = 'issued' and ra.costtype_name = 'Стоимость убытка'
+  AND coalesce(ra.REFUNDCATEGORY_name, 'нд') <> 'Выплата по удостоверению ФУ'
+  AND DATE_TRUNC('day', ra.createtime__claim_transaction) <= 
+      ( (3+.0)::integer  || '.' || TO_CHAR(CURRENT_DATE, 'MM.YYYY'))::DATE
 GROUP BY 
     cp.contract_id, 
     cp.policy_series, 
