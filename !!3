@@ -1,9 +1,10 @@
 DO $$
 DECLARE
     rec RECORD;
-    search_value TEXT := 'ваш_текст_для_поиска';  -- замените на нужное значение
-    schema_name TEXT := 'core';                   -- замените на нужную схему
+    search_value TEXT := 'ваш_текст_для_поиска';
+    schema_name TEXT := 'core';
     query_text TEXT;
+    sample_data RECORD;
     found_count INTEGER;
     result_count INTEGER := 0;
 BEGIN
@@ -19,24 +20,38 @@ BEGIN
           AND character_maximum_length > 25  -- только поля длиннее 25 символов
         ORDER BY table_name, column_name
     LOOP
-        -- Формируем динамический запрос для поиска
+        -- Формируем запрос для поиска
         query_text := format('
             SELECT COUNT(*) 
             FROM %I.%I 
             WHERE %I::TEXT LIKE ''%%%s%%''
         ', schema_name, rec.table_name, rec.column_name, search_value);
         
-        -- Выполняем запрос
         EXECUTE query_text INTO found_count;
         
-        -- Если найдены совпадения, выводим информацию
         IF found_count > 0 THEN
-            RAISE NOTICE 'Таблица: %.%, Колонка: %, Найдено: % записей', 
-                schema_name, rec.table_name, rec.column_name, found_count;
+            RAISE NOTICE '-----------';
+            RAISE NOTICE 'Таблица: %.%, Колонка: %', 
+                schema_name, rec.table_name, rec.column_name;
+            RAISE NOTICE 'Найдено записей: %', found_count;
+            
+            -- Выводим первые 3 примера найденных значений
+            query_text := format('
+                SELECT %I 
+                FROM %I.%I 
+                WHERE %I::TEXT LIKE ''%%%s%%''
+                LIMIT 3
+            ', rec.column_name, schema_name, rec.table_name, rec.column_name, search_value);
+            
+            FOR sample_data IN EXECUTE query_text LOOP
+                RAISE NOTICE 'Пример: %', sample_data.text;
+            END LOOP;
+            
             result_count := result_count + 1;
         END IF;
         
     END LOOP;
     
+    RAISE NOTICE '=========================================';
     RAISE NOTICE 'Всего найдено таблиц/колонок с совпадениями: %', result_count;
 END $$;
