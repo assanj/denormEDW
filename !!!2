@@ -1,7 +1,5 @@
-
-	select* from  actuary.rep_guru_kasko_tr_cp AS dist
-
-join cdm_analysis_out.ac_kasko_form1_h_curr_part_attrs_view f1
-on  f1.objectid = dist.contract_id
-  where f1.rep_period = date_trunc('month', current_date - interval '2 month')::date;  ----<<<<<<<<<<<<<<<<<----kms
-  limit 10
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'core'
+  AND table_name = 'object_risk_type'
+  AND column_name IN ('object_class', 'program_type');
