@@ -1,6 +1,5 @@
-ORDER BY claimnumber;SQL Error [42883]: ERROR: operator does not exist: text = double precision
-  Hint: No operator matches the given name and argument types. You might need to add explicit type casts.
-  Position: 15737
-  ERROR: operator does not exist: text = double precision
-  Hint: No operator matches the given name and argument types. You might need to add explicit type casts.
-  Position: 15737
+CREATE INDEX IF NOT EXISTS idx_rep_guru_osago_triangle_claimnumber 
+    ON actuary.rep_guru_osago_triangle (claimnumber);
+
+CREATE INDEX IF NOT EXISTS idx_rep_guru_osago_triangle_repsrv_claimnumber 
+    ON actuary.rep_guru_osago_triangle_repsrv (claimnumber);
