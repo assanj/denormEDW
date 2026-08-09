@@ -1,4 +1,6 @@
+
 -- Статистика расхождений по полям
+CREATE TABLE IF NOT EXISTS actuary.rep_guru_osago_triangle_delta_stats  as
 SELECT field_name, diff_count
 FROM (
     -- Текстовые поля
@@ -689,3 +691,8 @@ FROM (
     WHERE pg_approved_60 IS DISTINCT FROM ora_approved_60
 ) stats
 ORDER BY diff_count DESC;
+COMMENT ON TABLE actuary.rep_guru_osago_triangle_delta_stats IS 
+'Статистика расхождений по полям между rep_guru_osago_triangle (Postgres) и rep_guru_osago_triangle_repsrv (Oracle).
+Поле field_name – идентификатор сравниваемого параметра (например, reserve_1, region и т.д.).
+Поле diff_count – количество записей, в которых значение данного поля отличается между версиями.
+Данные обновляются периодически для мониторинга корректности расчётов.';
