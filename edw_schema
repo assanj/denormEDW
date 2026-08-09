@@ -2456,12 +2456,18 @@ COMMENT ON COLUMN actuary.ref_category_monitoring_key2.mon_cat_name_1 IS '# На
 COMMENT ON COLUMN actuary.ref_category_monitoring_key2.mon_cat_name_2 IS '# Наименование мониторинговой категории 2';
 COMMENT ON COLUMN actuary.ref_category_monitoring_key2.mon_cat_name_3 IS '# Наименование мониторинговой категории 3';
 COMMENT ON COLUMN actuary.ref_category_monitoring_key2.voper IS '# V операция';
+CREATE TABLE actuary.rep_guru_kasko_tr_attrs (policyid CHARACTER VARYING(50), product_program_type TEXT, objectclass TEXT);
+CREATE TABLE actuary.rep_guru_kasko_tr_cp (contract_id CHARACTER VARYING(50), policy_series CHARACTER VARYING(50) COLLATE "C", policy_number CHARACTER VARYING(50) COLLATE "C", claim_id TEXT, claimnumber CHARACTER VARYING(150), claim_level_risk CHARACTER VARYING(256), claim_ins_type TEXT, lossdate DATE, accidenttype CHARACTER VARYING(50) COLLATE "C", product_program_type TEXT, objectclass TEXT, is_total_loss INTEGER, is_theft INTEGER, coverages TEXT, is_capital_insurance INTEGER, contract_option TEXT, is_partner TEXT, sale_channel_groupmk_name TEXT, category_id TEXT, category_id_2020 TEXT, planning_region_name TEXT, is_policy_from_ea TEXT, is_policy_from_e_garant TEXT, is_need_reinsurance TEXT, accepted_for_reinsurance_main TEXT, d1_month TEXT, accident_month TEXT);
+CREATE TABLE actuary.rep_guru_kasko_triangle (contract_id CHARACTER VARYING(50), policy_series CHARACTER VARYING(50) COLLATE "C", policy_number CHARACTER VARYING(50) COLLATE "C", claimnumber CHARACTER VARYING(150), is_capital_insurance INTEGER, claim_level_risk CHARACTER VARYING(256), claim_ins_type TEXT, lossdate DATE, is_total_loss INTEGER, is_theft INTEGER, coverages TEXT, contract_option TEXT, is_partner TEXT, sale_channel_groupmk_name TEXT, category_id TEXT, category_id_2020 TEXT, planning_region_name TEXT, d1_month TEXT, accident_month TEXT, is_policy_from_ea TEXT, is_policy_from_e_garant TEXT, is_need_reinsurance TEXT, accepted_for_reinsurance_main TEXT, product_program_type TEXT, objectclass TEXT, plus_1_month_11_reserve NUMERIC, plus_2_month_11_reserve NUMERIC, plus_3_month_11_reserve NUMERIC, plus_4_month_11_reserve NUMERIC, plus_5_month_11_reserve NUMERIC, plus_6_month_11_reserve NUMERIC, plus_7_month_11_reserve NUMERIC, plus_8_month_11_reserve NUMERIC, plus_9_month_11_reserve NUMERIC, plus_10_month_11_reserve NUMERIC, plus_11_month_11_reserve NUMERIC, plus_12_month_11_reserve NUMERIC, plus_13_month_11_reserve NUMERIC, plus_14_month_11_reserve NUMERIC, plus_15_month_11_reserve NUMERIC, plus_16_month_11_reserve NUMERIC, plus_17_month_11_reserve NUMERIC, plus_18_month_11_reserve NUMERIC, plus_19_month_11_reserve NUMERIC, plus_20_month_11_reserve NUMERIC, plus_21_month_11_reserve NUMERIC, plus_22_month_11_reserve NUMERIC, plus_23_month_11_reserve NUMERIC, plus_24_month_11_reserve NUMERIC, plus_25_month_11_reserve NUMERIC, plus_26_month_11_reserve NUMERIC, plus_27_month_11_reserve NUMERIC, plus_28_month_11_reserve NUMERIC, plus_29_month_11_reserve NUMERIC, plus_30_month_11_reserve NUMERIC, plus_31_month_11_reserve NUMERIC, plus_32_month_11_reserve NUMERIC, plus_33_month_11_reserve NUMERIC, plus_34_month_11_reserve NUMERIC, plus_35_month_11_reserve NUMERIC, plus_36_month_11_reserve NUMERIC, plus_37_month_11_reserve NUMERIC, plus_38_month_11_reserve NUMERIC, plus_39_month_11_reserve NUMERIC, plus_40_month_11_reserve NUMERIC, plus_41_month_11_reserve NUMERIC, plus_42_month_11_reserve NUMERIC, plus_43_month_11_reserve NUMERIC, plus_44_month_11_reserve NUMERIC, plus_45_month_11_reserve NUMERIC, plus_46_month_11_reserve NUMERIC, plus_47_month_11_reserve NUMERIC, plus_48_month_11_reserve NUMERIC, plus_49_month_11_reserve NUMERIC, plus_50_month_11_reserve NUMERIC, plus_51_month_11_reserve NUMERIC, plus_52_month_11_reserve NUMERIC, plus_53_month_11_reserve NUMERIC, plus_54_month_11_reserve NUMERIC, plus_55_month_11_reserve NUMERIC, plus_56_month_11_reserve NUMERIC, plus_57_month_11_reserve NUMERIC, plus_58_month_11_reserve NUMERIC, plus_59_month_11_reserve NUMERIC, plus_60_month_11_reserve NUMERIC, plus_1_month_11_approved NUMERIC, plus_2_month_11_approved NUMERIC, plus_3_month_11_approved NUMERIC, plus_4_month_11_approved NUMERIC, plus_5_month_11_approved NUMERIC, plus_6_month_11_approved NUMERIC, plus_7_month_11_approved NUMERIC, plus_8_month_11_approved NUMERIC, plus_9_month_11_approved NUMERIC, plus_10_month_11_approved NUMERIC, plus_11_month_11_approved NUMERIC, plus_12_month_11_approved NUMERIC, plus_13_month_11_approved NUMERIC, plus_14_month_11_approved NUMERIC, plus_15_month_11_approved NUMERIC, plus_16_month_11_approved NUMERIC, plus_17_month_11_approved NUMERIC, plus_18_month_11_approved NUMERIC, plus_19_month_11_approved NUMERIC, plus_20_month_11_approved NUMERIC, plus_21_month_11_approved NUMERIC, plus_22_month_11_approved NUMERIC, plus_23_month_11_approved NUMERIC, plus_24_month_11_approved NUMERIC, plus_25_month_11_approved NUMERIC, plus_26_month_11_approved NUMERIC, plus_27_month_11_approved NUMERIC, plus_28_month_11_approved NUMERIC, plus_29_month_11_approved NUMERIC, plus_30_month_11_approved NUMERIC, plus_31_month_11_approved NUMERIC, plus_32_month_11_approved NUMERIC, plus_33_month_11_approved NUMERIC, plus_34_month_11_approved NUMERIC, plus_35_month_11_approved NUMERIC, plus_36_month_11_approved NUMERIC, plus_37_month_11_approved NUMERIC, plus_38_month_11_approved NUMERIC, plus_39_month_11_approved NUMERIC, plus_40_month_11_approved NUMERIC, plus_41_month_11_approved NUMERIC, plus_42_month_11_approved NUMERIC, plus_43_month_11_approved NUMERIC, plus_44_month_11_approved NUMERIC, plus_45_month_11_approved NUMERIC, plus_46_month_11_approved NUMERIC, plus_47_month_11_approved NUMERIC, plus_48_month_11_approved NUMERIC, plus_49_month_11_approved NUMERIC, plus_50_month_11_approved NUMERIC, plus_51_month_11_approved NUMERIC, plus_52_month_11_approved NUMERIC, plus_53_month_11_approved NUMERIC, plus_54_month_11_approved NUMERIC, plus_55_month_11_approved NUMERIC, plus_56_month_11_approved NUMERIC, plus_57_month_11_approved NUMERIC, plus_58_month_11_approved NUMERIC, plus_59_month_11_approved NUMERIC, plus_60_month_11_approved NUMERIC);
+CREATE TABLE actuary.rep_guru_kasko_triangle_r (planning_region_name CHARACTER VARYING, is_capital_insurance NUMERIC, category_id CHARACTER VARYING, category_id_2020 CHARACTER VARYING, contract_option CHARACTER VARYING, is_partner CHARACTER VARYING, sale_channel_groupmk_name CHARACTER VARYING, d1_month CHARACTER VARYING(6), accident_month CHARACTER VARYING(6), development_month INTEGER, is_policy_from_ea CHARACTER VARYING, is_policy_from_e_garant CHARACTER VARYING, is_need_reinsurance CHARACTER VARYING, is_total_loss INTEGER, is_theft INTEGER, coverages CHARACTER VARYING, product_program_type CHARACTER VARYING, objectclass CHARACTER VARYING, reservesum NUMERIC, reservecount INTEGER, approvedsum NUMERIC, approvedcount INTEGER);
+CREATE TABLE actuary.rep_guru_kasko_triangle_repsrv (contract_id CHARACTER VARYING(100), policy_series CHARACTER VARYING(50), policy_number CHARACTER VARYING(100), claimnumber CHARACTER VARYING(100), is_capital_insurance DOUBLE PRECISION, new_regionname CHARACTER VARYING(150), claim_level_risk CHARACTER VARYING(256), is_total_loss CHARACTER VARYING(1), is_theft CHARACTER VARYING(1), claim_ins_type CHARACTER VARYING(16), lossdate TIMESTAMP(6) WITHOUT TIME ZONE, arm_ekis_contractoption CHARACTER VARYING(255), arm_ekis_is_partner CHARACTER VARYING(255), salechannelfullname_de CHARACTER VARYING(255), category_id_final CHARACTER VARYING(255), category_id_2020_final CHARACTER VARYING(255), regionname_final CHARACTER VARYING(255), d1_month CHARACTER VARYING(6), accident_month CHARACTER VARYING(6), coverages CHARACTER VARYING(4000), plus_1_month_11_reserve DOUBLE PRECISION, plus_2_month_11_reserve DOUBLE PRECISION, plus_3_month_11_reserve DOUBLE PRECISION, plus_4_month_11_reserve DOUBLE PRECISION, plus_5_month_11_reserve DOUBLE PRECISION, plus_6_month_11_reserve DOUBLE PRECISION, plus_7_month_11_reserve DOUBLE PRECISION, plus_8_month_11_reserve DOUBLE PRECISION, plus_9_month_11_reserve DOUBLE PRECISION, plus_10_month_11_reserve DOUBLE PRECISION, plus_11_month_11_reserve DOUBLE PRECISION, plus_12_month_11_reserve DOUBLE PRECISION, plus_13_month_11_reserve DOUBLE PRECISION, plus_14_month_11_reserve DOUBLE PRECISION, plus_15_month_11_reserve DOUBLE PRECISION, plus_16_month_11_reserve DOUBLE PRECISION, plus_17_month_11_reserve DOUBLE PRECISION, plus_18_month_11_reserve DOUBLE PRECISION, plus_19_month_11_reserve DOUBLE PRECISION, plus_20_month_11_reserve DOUBLE PRECISION, plus_21_month_11_reserve DOUBLE PRECISION, plus_22_month_11_reserve DOUBLE PRECISION, plus_23_month_11_reserve DOUBLE PRECISION, plus_24_month_11_reserve DOUBLE PRECISION, plus_25_month_11_reserve DOUBLE PRECISION, plus_26_month_11_reserve DOUBLE PRECISION, plus_27_month_11_reserve DOUBLE PRECISION, plus_28_month_11_reserve DOUBLE PRECISION, plus_29_month_11_reserve DOUBLE PRECISION, plus_30_month_11_reserve DOUBLE PRECISION, plus_31_month_11_reserve DOUBLE PRECISION, plus_32_month_11_reserve DOUBLE PRECISION, plus_33_month_11_reserve DOUBLE PRECISION, plus_34_month_11_reserve DOUBLE PRECISION, plus_35_month_11_reserve DOUBLE PRECISION, plus_36_month_11_reserve DOUBLE PRECISION, plus_37_month_11_reserve DOUBLE PRECISION, plus_38_month_11_reserve DOUBLE PRECISION, plus_39_month_11_reserve DOUBLE PRECISION, plus_40_month_11_reserve DOUBLE PRECISION, plus_41_month_11_reserve DOUBLE PRECISION, plus_42_month_11_reserve DOUBLE PRECISION, plus_43_month_11_reserve DOUBLE PRECISION, plus_44_month_11_reserve DOUBLE PRECISION, plus_45_month_11_reserve DOUBLE PRECISION, plus_46_month_11_reserve DOUBLE PRECISION, plus_47_month_11_reserve DOUBLE PRECISION, plus_48_month_11_reserve DOUBLE PRECISION, plus_49_month_11_reserve DOUBLE PRECISION, plus_50_month_11_reserve DOUBLE PRECISION, plus_51_month_11_reserve DOUBLE PRECISION, plus_52_month_11_reserve DOUBLE PRECISION, plus_53_month_11_reserve DOUBLE PRECISION, plus_54_month_11_reserve DOUBLE PRECISION, plus_55_month_11_reserve DOUBLE PRECISION, plus_56_month_11_reserve DOUBLE PRECISION, plus_57_month_11_reserve DOUBLE PRECISION, plus_58_month_11_reserve DOUBLE PRECISION, plus_59_month_11_reserve DOUBLE PRECISION, plus_60_month_11_reserve DOUBLE PRECISION, plus_1_month_11_approved DOUBLE PRECISION, plus_2_month_11_approved DOUBLE PRECISION, plus_3_month_11_approved DOUBLE PRECISION, plus_4_month_11_approved DOUBLE PRECISION, plus_5_month_11_approved DOUBLE PRECISION, plus_6_month_11_approved DOUBLE PRECISION, plus_7_month_11_approved DOUBLE PRECISION, plus_8_month_11_approved DOUBLE PRECISION, plus_9_month_11_approved DOUBLE PRECISION, plus_10_month_11_approved DOUBLE PRECISION, plus_11_month_11_approved DOUBLE PRECISION, plus_12_month_11_approved DOUBLE PRECISION, plus_13_month_11_approved DOUBLE PRECISION, plus_14_month_11_approved DOUBLE PRECISION, plus_15_month_11_approved DOUBLE PRECISION, plus_16_month_11_approved DOUBLE PRECISION, plus_17_month_11_approved DOUBLE PRECISION, plus_18_month_11_approved DOUBLE PRECISION, plus_19_month_11_approved DOUBLE PRECISION, plus_20_month_11_approved DOUBLE PRECISION, plus_21_month_11_approved DOUBLE PRECISION, plus_22_month_11_approved DOUBLE PRECISION, plus_23_month_11_approved DOUBLE PRECISION, plus_24_month_11_approved DOUBLE PRECISION, plus_25_month_11_approved DOUBLE PRECISION, plus_26_month_11_approved DOUBLE PRECISION, plus_27_month_11_approved DOUBLE PRECISION, plus_28_month_11_approved DOUBLE PRECISION, plus_29_month_11_approved DOUBLE PRECISION, plus_30_month_11_approved DOUBLE PRECISION, plus_31_month_11_approved DOUBLE PRECISION, plus_32_month_11_approved DOUBLE PRECISION, plus_33_month_11_approved DOUBLE PRECISION, plus_34_month_11_approved DOUBLE PRECISION, plus_35_month_11_approved DOUBLE PRECISION, plus_36_month_11_approved DOUBLE PRECISION, plus_37_month_11_approved DOUBLE PRECISION, plus_38_month_11_approved DOUBLE PRECISION, plus_39_month_11_approved DOUBLE PRECISION, plus_40_month_11_approved DOUBLE PRECISION, plus_41_month_11_approved DOUBLE PRECISION, plus_42_month_11_approved DOUBLE PRECISION, plus_43_month_11_approved DOUBLE PRECISION, plus_44_month_11_approved DOUBLE PRECISION, plus_45_month_11_approved DOUBLE PRECISION, plus_46_month_11_approved DOUBLE PRECISION, plus_47_month_11_approved DOUBLE PRECISION, plus_48_month_11_approved DOUBLE PRECISION, plus_49_month_11_approved DOUBLE PRECISION, plus_50_month_11_approved DOUBLE PRECISION, plus_51_month_11_approved DOUBLE PRECISION, plus_52_month_11_approved DOUBLE PRECISION, plus_53_month_11_approved DOUBLE PRECISION, plus_54_month_11_approved DOUBLE PRECISION, plus_55_month_11_approved DOUBLE PRECISION, plus_56_month_11_approved DOUBLE PRECISION, plus_57_month_11_approved DOUBLE PRECISION, plus_58_month_11_approved DOUBLE PRECISION, plus_59_month_11_approved DOUBLE PRECISION, plus_60_month_11_approved DOUBLE PRECISION, arm_ekis_product_program_type CHARACTER VARYING(255), arm_ekis_objectclass CHARACTER VARYING(255));
 CREATE TABLE actuary.rep_guru_osago_tr_cp (contract_id CHARACTER VARYING(50), policy_series CHARACTER VARYING(50) COLLATE "C", policy_number CHARACTER VARYING(50) COLLATE "C", claim_id TEXT, claimnumber CHARACTER VARYING(150), claim_level_risk CHARACTER VARYING(256), claim_ins_type TEXT, lossdate DATE, is_pvu TEXT, is_pvu_repsrv TEXT, is_capital_insurance INTEGER, contract_option TEXT, is_partner TEXT, sale_channel_groupmk_name TEXT, category_id TEXT, category_id_2020 TEXT, planning_region_name TEXT, is_policy_from_ea TEXT, is_policy_from_e_garant TEXT, is_need_reinsurance TEXT, accepted_for_reinsurance_main TEXT, osago_chain_number INTEGER, d1_month TEXT, accident_month TEXT);
 CREATE TABLE actuary.rep_guru_osago_tr_cp_repsrv (contract_id CHARACTER VARYING(100), policy_series CHARACTER VARYING(50), policy_number CHARACTER VARYING(100), claimid NUMERIC(38,0), claimnumber CHARACTER VARYING(40), new_regionname CHARACTER VARYING(150), claim_level_risk CHARACTER VARYING(256), claim_ins_type CHARACTER VARYING(16), lossdate TIMESTAMP(6) WITHOUT TIME ZONE, is_pvu CHARACTER VARYING(22), is_capital_insurance DOUBLE PRECISION, arm_ekis_contractoption CHARACTER VARYING(255), arm_ekis_is_partner CHARACTER VARYING(255), salechannelfullname_de CHARACTER VARYING(255), category_id_final CHARACTER VARYING(255), category_id_2020_final CHARACTER VARYING(255), regionname_final CHARACTER VARYING(255), d1_month CHARACTER VARYING(6), accident_month CHARACTER VARYING(6));
 CREATE TABLE actuary.rep_guru_osago_tr_is_pvu (claim_id TEXT, is_pvu TEXT);
 CREATE TABLE actuary.rep_guru_osago_tr_is_pvu_repsrv (claimid NUMERIC(38,0), is_pvu CHARACTER VARYING(22));
-CREATE TABLE actuary.rep_guru_osago_triangle (contract_id CHARACTER VARYING(50), policy_series CHARACTER VARYING(50) COLLATE "C", policy_number CHARACTER VARYING(50) COLLATE "C", claimnumber CHARACTER VARYING(150), is_capital_insurance INTEGER, claim_level_risk CHARACTER VARYING(256), claim_ins_type TEXT, lossdate DATE, is_pvu TEXT, is_pvu_repsrv TEXT, contract_option TEXT, is_partner TEXT, sale_channel_groupmk_name TEXT, category_id TEXT, category_id_2020 TEXT, planning_region_name TEXT, d1_month TEXT, accident_month TEXT, is_policy_from_ea TEXT, is_policy_from_e_garant TEXT, is_need_reinsurance TEXT, accepted_for_reinsurance_main TEXT, osago_chain_number INTEGER, plus_1_month_11_reserve NUMERIC, plus_2_month_11_reserve NUMERIC, plus_3_month_11_reserve NUMERIC, plus_4_month_11_reserve NUMERIC, plus_5_month_11_reserve NUMERIC, plus_6_month_11_reserve NUMERIC, plus_7_month_11_reserve NUMERIC, plus_8_month_11_reserve NUMERIC, plus_9_month_11_reserve NUMERIC, plus_10_month_11_reserve NUMERIC, plus_11_month_11_reserve NUMERIC, plus_12_month_11_reserve NUMERIC, plus_13_month_11_reserve NUMERIC, plus_14_month_11_reserve NUMERIC, plus_15_month_11_reserve NUMERIC, plus_16_month_11_reserve NUMERIC, plus_17_month_11_reserve NUMERIC, plus_18_month_11_reserve NUMERIC, plus_19_month_11_reserve NUMERIC, plus_20_month_11_reserve NUMERIC, plus_21_month_11_reserve NUMERIC, plus_22_month_11_reserve NUMERIC, plus_23_month_11_reserve NUMERIC, plus_24_month_11_reserve NUMERIC, plus_25_month_11_reserve NUMERIC, plus_26_month_11_reserve NUMERIC, plus_27_month_11_reserve NUMERIC, plus_28_month_11_reserve NUMERIC, plus_29_month_11_reserve NUMERIC, plus_30_month_11_reserve NUMERIC, plus_31_month_11_reserve NUMERIC, plus_32_month_11_reserve NUMERIC, plus_33_month_11_reserve NUMERIC, plus_34_month_11_reserve NUMERIC, plus_35_month_11_reserve NUMERIC, plus_36_month_11_reserve NUMERIC, plus_37_month_11_reserve NUMERIC, plus_38_month_11_reserve NUMERIC, plus_39_month_11_reserve NUMERIC, plus_40_month_11_reserve NUMERIC, plus_41_month_11_reserve NUMERIC, plus_42_month_11_reserve NUMERIC, plus_43_month_11_reserve NUMERIC, plus_44_month_11_reserve NUMERIC, plus_45_month_11_reserve NUMERIC, plus_46_month_11_reserve NUMERIC, plus_47_month_11_reserve NUMERIC, plus_48_month_11_reserve NUMERIC, plus_49_month_11_reserve NUMERIC, plus_50_month_11_reserve NUMERIC, plus_51_month_11_reserve NUMERIC, plus_52_month_11_reserve NUMERIC, plus_53_month_11_reserve NUMERIC, plus_54_month_11_reserve NUMERIC, plus_55_month_11_reserve NUMERIC, plus_56_month_11_reserve NUMERIC, plus_57_month_11_reserve NUMERIC, plus_58_month_11_reserve NUMERIC, plus_59_month_11_reserve NUMERIC, plus_60_month_11_reserve NUMERIC, plus_1_month_11_approved NUMERIC, plus_2_month_11_approved NUMERIC, plus_3_month_11_approved NUMERIC, plus_4_month_11_approved NUMERIC, plus_5_month_11_approved NUMERIC, plus_6_month_11_approved NUMERIC, plus_7_month_11_approved NUMERIC, plus_8_month_11_approved NUMERIC, plus_9_month_11_approved NUMERIC, plus_10_month_11_approved NUMERIC, plus_11_month_11_approved NUMERIC, plus_12_month_11_approved NUMERIC, plus_13_month_11_approved NUMERIC, plus_14_month_11_approved NUMERIC, plus_15_month_11_approved NUMERIC, plus_16_month_11_approved NUMERIC, plus_17_month_11_approved NUMERIC, plus_18_month_11_approved NUMERIC, plus_19_month_11_approved NUMERIC, plus_20_month_11_approved NUMERIC, plus_21_month_11_approved NUMERIC, plus_22_month_11_approved NUMERIC, plus_23_month_11_approved NUMERIC, plus_24_month_11_approved NUMERIC, plus_25_month_11_approved NUMERIC, plus_26_month_11_approved NUMERIC, plus_27_month_11_approved NUMERIC, plus_28_month_11_approved NUMERIC, plus_29_month_11_approved NUMERIC, plus_30_month_11_approved NUMERIC, plus_31_month_11_approved NUMERIC, plus_32_month_11_approved NUMERIC, plus_33_month_11_approved NUMERIC, plus_34_month_11_approved NUMERIC, plus_35_month_11_approved NUMERIC, plus_36_month_11_approved NUMERIC, plus_37_month_11_approved NUMERIC, plus_38_month_11_approved NUMERIC, plus_39_month_11_approved NUMERIC, plus_40_month_11_approved NUMERIC, plus_41_month_11_approved NUMERIC, plus_42_month_11_approved NUMERIC, plus_43_month_11_approved NUMERIC, plus_44_month_11_approved NUMERIC, plus_45_month_11_approved NUMERIC, plus_46_month_11_approved NUMERIC, plus_47_month_11_approved NUMERIC, plus_48_month_11_approved NUMERIC, plus_49_month_11_approved NUMERIC, plus_50_month_11_approved NUMERIC, plus_51_month_11_approved NUMERIC, plus_52_month_11_approved NUMERIC, plus_53_month_11_approved NUMERIC, plus_54_month_11_approved NUMERIC, plus_55_month_11_approved NUMERIC, plus_56_month_11_approved NUMERIC, plus_57_month_11_approved NUMERIC, plus_58_month_11_approved NUMERIC, plus_59_month_11_approved NUMERIC, plus_60_month_11_approved NUMERIC);
+CREATE TABLE actuary.rep_guru_osago_triangle (contract_id CHARACTER VARYING(50), policy_series CHARACTER VARYING(50) COLLATE "C", policy_number CHARACTER VARYING(50) COLLATE "C", claimnumber CHARACTER VARYING(150), is_capital_insurance INTEGER, claim_level_risk CHARACTER VARYING(256), claim_ins_type TEXT, lossdate DATE, is_pvu TEXT, contract_option TEXT, is_partner TEXT, sale_channel_groupmk_name TEXT, category_id TEXT, category_id_2020 TEXT, planning_region_name TEXT, d1_month TEXT, accident_month TEXT, is_policy_from_ea TEXT, is_policy_from_e_garant TEXT, is_need_reinsurance TEXT, accepted_for_reinsurance_main TEXT, osago_chain_number INTEGER, plus_1_month_11_reserve NUMERIC, plus_2_month_11_reserve NUMERIC, plus_3_month_11_reserve NUMERIC, plus_4_month_11_reserve NUMERIC, plus_5_month_11_reserve NUMERIC, plus_6_month_11_reserve NUMERIC, plus_7_month_11_reserve NUMERIC, plus_8_month_11_reserve NUMERIC, plus_9_month_11_reserve NUMERIC, plus_10_month_11_reserve NUMERIC, plus_11_month_11_reserve NUMERIC, plus_12_month_11_reserve NUMERIC, plus_13_month_11_reserve NUMERIC, plus_14_month_11_reserve NUMERIC, plus_15_month_11_reserve NUMERIC, plus_16_month_11_reserve NUMERIC, plus_17_month_11_reserve NUMERIC, plus_18_month_11_reserve NUMERIC, plus_19_month_11_reserve NUMERIC, plus_20_month_11_reserve NUMERIC, plus_21_month_11_reserve NUMERIC, plus_22_month_11_reserve NUMERIC, plus_23_month_11_reserve NUMERIC, plus_24_month_11_reserve NUMERIC, plus_25_month_11_reserve NUMERIC, plus_26_month_11_reserve NUMERIC, plus_27_month_11_reserve NUMERIC, plus_28_month_11_reserve NUMERIC, plus_29_month_11_reserve NUMERIC, plus_30_month_11_reserve NUMERIC, plus_31_month_11_reserve NUMERIC, plus_32_month_11_reserve NUMERIC, plus_33_month_11_reserve NUMERIC, plus_34_month_11_reserve NUMERIC, plus_35_month_11_reserve NUMERIC, plus_36_month_11_reserve NUMERIC, plus_37_month_11_reserve NUMERIC, plus_38_month_11_reserve NUMERIC, plus_39_month_11_reserve NUMERIC, plus_40_month_11_reserve NUMERIC, plus_41_month_11_reserve NUMERIC, plus_42_month_11_reserve NUMERIC, plus_43_month_11_reserve NUMERIC, plus_44_month_11_reserve NUMERIC, plus_45_month_11_reserve NUMERIC, plus_46_month_11_reserve NUMERIC, plus_47_month_11_reserve NUMERIC, plus_48_month_11_reserve NUMERIC, plus_49_month_11_reserve NUMERIC, plus_50_month_11_reserve NUMERIC, plus_51_month_11_reserve NUMERIC, plus_52_month_11_reserve NUMERIC, plus_53_month_11_reserve NUMERIC, plus_54_month_11_reserve NUMERIC, plus_55_month_11_reserve NUMERIC, plus_56_month_11_reserve NUMERIC, plus_57_month_11_reserve NUMERIC, plus_58_month_11_reserve NUMERIC, plus_59_month_11_reserve NUMERIC, plus_60_month_11_reserve NUMERIC, plus_1_month_11_approved NUMERIC, plus_2_month_11_approved NUMERIC, plus_3_month_11_approved NUMERIC, plus_4_month_11_approved NUMERIC, plus_5_month_11_approved NUMERIC, plus_6_month_11_approved NUMERIC, plus_7_month_11_approved NUMERIC, plus_8_month_11_approved NUMERIC, plus_9_month_11_approved NUMERIC, plus_10_month_11_approved NUMERIC, plus_11_month_11_approved NUMERIC, plus_12_month_11_approved NUMERIC, plus_13_month_11_approved NUMERIC, plus_14_month_11_approved NUMERIC, plus_15_month_11_approved NUMERIC, plus_16_month_11_approved NUMERIC, plus_17_month_11_approved NUMERIC, plus_18_month_11_approved NUMERIC, plus_19_month_11_approved NUMERIC, plus_20_month_11_approved NUMERIC, plus_21_month_11_approved NUMERIC, plus_22_month_11_approved NUMERIC, plus_23_month_11_approved NUMERIC, plus_24_month_11_approved NUMERIC, plus_25_month_11_approved NUMERIC, plus_26_month_11_approved NUMERIC, plus_27_month_11_approved NUMERIC, plus_28_month_11_approved NUMERIC, plus_29_month_11_approved NUMERIC, plus_30_month_11_approved NUMERIC, plus_31_month_11_approved NUMERIC, plus_32_month_11_approved NUMERIC, plus_33_month_11_approved NUMERIC, plus_34_month_11_approved NUMERIC, plus_35_month_11_approved NUMERIC, plus_36_month_11_approved NUMERIC, plus_37_month_11_approved NUMERIC, plus_38_month_11_approved NUMERIC, plus_39_month_11_approved NUMERIC, plus_40_month_11_approved NUMERIC, plus_41_month_11_approved NUMERIC, plus_42_month_11_approved NUMERIC, plus_43_month_11_approved NUMERIC, plus_44_month_11_approved NUMERIC, plus_45_month_11_approved NUMERIC, plus_46_month_11_approved NUMERIC, plus_47_month_11_approved NUMERIC, plus_48_month_11_approved NUMERIC, plus_49_month_11_approved NUMERIC, plus_50_month_11_approved NUMERIC, plus_51_month_11_approved NUMERIC, plus_52_month_11_approved NUMERIC, plus_53_month_11_approved NUMERIC, plus_54_month_11_approved NUMERIC, plus_55_month_11_approved NUMERIC, plus_56_month_11_approved NUMERIC, plus_57_month_11_approved NUMERIC, plus_58_month_11_approved NUMERIC, plus_59_month_11_approved NUMERIC, plus_60_month_11_approved NUMERIC);
 CREATE TABLE actuary.rep_guru_osago_triangle_r (planning_region_name CHARACTER VARYING, is_capital_insurance NUMERIC, category_id CHARACTER VARYING, category_id_2020 CHARACTER VARYING, contract_option CHARACTER VARYING, is_partner CHARACTER VARYING, sale_channel_groupmk_name CHARACTER VARYING, is_pvu CHARACTER VARYING, d1_month CHARACTER VARYING(6), accident_month CHARACTER VARYING(6), development_month INTEGER, is_policy_from_ea CHARACTER VARYING, is_policy_from_e_garant CHARACTER VARYING, is_need_reinsurance CHARACTER VARYING, osago_chain_number INTEGER, reservesum NUMERIC, reservecount INTEGER, approvedsum NUMERIC, approvedcount INTEGER);
+CREATE TABLE actuary.rep_guru_osago_triangle_repsrv (contract_id CHARACTER VARYING(100), policy_series CHARACTER VARYING(50), policy_number CHARACTER VARYING(100), claimnumber CHARACTER VARYING(40), is_capital_insurance DOUBLE PRECISION, new_regionname CHARACTER VARYING(150), claim_level_risk CHARACTER VARYING(256), claim_ins_type CHARACTER VARYING(16), lossdate TIMESTAMP(6) WITHOUT TIME ZONE, is_pvu CHARACTER VARYING(22), arm_ekis_contractoption CHARACTER VARYING(255), arm_ekis_is_partner CHARACTER VARYING(255), salechannelfullname_de CHARACTER VARYING(255), category_id_final CHARACTER VARYING(255), category_id_2020_final CHARACTER VARYING(255), regionname_final CHARACTER VARYING(255), d1_month CHARACTER VARYING(6), accident_month CHARACTER VARYING(6), is_policy_from_ea DOUBLE PRECISION, is_policy_from_e_garant DOUBLE PRECISION, is_need_reinsurance DOUBLE PRECISION, accepted_for_reinsurance_main CHARACTER VARYING(30), osago_chain_number DOUBLE PRECISION, plus_1_month_11_reserve DOUBLE PRECISION, plus_2_month_11_reserve DOUBLE PRECISION, plus_3_month_11_reserve DOUBLE PRECISION, plus_4_month_11_reserve DOUBLE PRECISION, plus_5_month_11_reserve DOUBLE PRECISION, plus_6_month_11_reserve DOUBLE PRECISION, plus_7_month_11_reserve DOUBLE PRECISION, plus_8_month_11_reserve DOUBLE PRECISION, plus_9_month_11_reserve DOUBLE PRECISION, plus_10_month_11_reserve DOUBLE PRECISION, plus_11_month_11_reserve DOUBLE PRECISION, plus_12_month_11_reserve DOUBLE PRECISION, plus_13_month_11_reserve DOUBLE PRECISION, plus_14_month_11_reserve DOUBLE PRECISION, plus_15_month_11_reserve DOUBLE PRECISION, plus_16_month_11_reserve DOUBLE PRECISION, plus_17_month_11_reserve DOUBLE PRECISION, plus_18_month_11_reserve DOUBLE PRECISION, plus_19_month_11_reserve DOUBLE PRECISION, plus_20_month_11_reserve DOUBLE PRECISION, plus_21_month_11_reserve DOUBLE PRECISION, plus_22_month_11_reserve DOUBLE PRECISION, plus_23_month_11_reserve DOUBLE PRECISION, plus_24_month_11_reserve DOUBLE PRECISION, plus_25_month_11_reserve DOUBLE PRECISION, plus_26_month_11_reserve DOUBLE PRECISION, plus_27_month_11_reserve DOUBLE PRECISION, plus_28_month_11_reserve DOUBLE PRECISION, plus_29_month_11_reserve DOUBLE PRECISION, plus_30_month_11_reserve DOUBLE PRECISION, plus_31_month_11_reserve DOUBLE PRECISION, plus_32_month_11_reserve DOUBLE PRECISION, plus_33_month_11_reserve DOUBLE PRECISION, plus_34_month_11_reserve DOUBLE PRECISION, plus_35_month_11_reserve DOUBLE PRECISION, plus_36_month_11_reserve DOUBLE PRECISION, plus_37_month_11_reserve DOUBLE PRECISION, plus_38_month_11_reserve DOUBLE PRECISION, plus_39_month_11_reserve DOUBLE PRECISION, plus_40_month_11_reserve DOUBLE PRECISION, plus_41_month_11_reserve DOUBLE PRECISION, plus_42_month_11_reserve DOUBLE PRECISION, plus_43_month_11_reserve DOUBLE PRECISION, plus_44_month_11_reserve DOUBLE PRECISION, plus_45_month_11_reserve DOUBLE PRECISION, plus_46_month_11_reserve DOUBLE PRECISION, plus_47_month_11_reserve DOUBLE PRECISION, plus_48_month_11_reserve DOUBLE PRECISION, plus_49_month_11_reserve DOUBLE PRECISION, plus_50_month_11_reserve DOUBLE PRECISION, plus_51_month_11_reserve DOUBLE PRECISION, plus_52_month_11_reserve DOUBLE PRECISION, plus_53_month_11_reserve DOUBLE PRECISION, plus_54_month_11_reserve DOUBLE PRECISION, plus_55_month_11_reserve DOUBLE PRECISION, plus_56_month_11_reserve DOUBLE PRECISION, plus_57_month_11_reserve DOUBLE PRECISION, plus_58_month_11_reserve DOUBLE PRECISION, plus_59_month_11_reserve DOUBLE PRECISION, plus_60_month_11_reserve DOUBLE PRECISION, plus_1_month_11_approved DOUBLE PRECISION, plus_2_month_11_approved DOUBLE PRECISION, plus_3_month_11_approved DOUBLE PRECISION, plus_4_month_11_approved DOUBLE PRECISION, plus_5_month_11_approved DOUBLE PRECISION, plus_6_month_11_approved DOUBLE PRECISION, plus_7_month_11_approved DOUBLE PRECISION, plus_8_month_11_approved DOUBLE PRECISION, plus_9_month_11_approved DOUBLE PRECISION, plus_10_month_11_approved DOUBLE PRECISION, plus_11_month_11_approved DOUBLE PRECISION, plus_12_month_11_approved DOUBLE PRECISION, plus_13_month_11_approved DOUBLE PRECISION, plus_14_month_11_approved DOUBLE PRECISION, plus_15_month_11_approved DOUBLE PRECISION, plus_16_month_11_approved DOUBLE PRECISION, plus_17_month_11_approved DOUBLE PRECISION, plus_18_month_11_approved DOUBLE PRECISION, plus_19_month_11_approved DOUBLE PRECISION, plus_20_month_11_approved DOUBLE PRECISION, plus_21_month_11_approved DOUBLE PRECISION, plus_22_month_11_approved DOUBLE PRECISION, plus_23_month_11_approved DOUBLE PRECISION, plus_24_month_11_approved DOUBLE PRECISION, plus_25_month_11_approved DOUBLE PRECISION, plus_26_month_11_approved DOUBLE PRECISION, plus_27_month_11_approved DOUBLE PRECISION, plus_28_month_11_approved DOUBLE PRECISION, plus_29_month_11_approved DOUBLE PRECISION, plus_30_month_11_approved DOUBLE PRECISION, plus_31_month_11_approved DOUBLE PRECISION, plus_32_month_11_approved DOUBLE PRECISION, plus_33_month_11_approved DOUBLE PRECISION, plus_34_month_11_approved DOUBLE PRECISION, plus_35_month_11_approved DOUBLE PRECISION, plus_36_month_11_approved DOUBLE PRECISION, plus_37_month_11_approved DOUBLE PRECISION, plus_38_month_11_approved DOUBLE PRECISION, plus_39_month_11_approved DOUBLE PRECISION, plus_40_month_11_approved DOUBLE PRECISION, plus_41_month_11_approved DOUBLE PRECISION, plus_42_month_11_approved DOUBLE PRECISION, plus_43_month_11_approved DOUBLE PRECISION, plus_44_month_11_approved DOUBLE PRECISION, plus_45_month_11_approved DOUBLE PRECISION, plus_46_month_11_approved DOUBLE PRECISION, plus_47_month_11_approved DOUBLE PRECISION, plus_48_month_11_approved DOUBLE PRECISION, plus_49_month_11_approved DOUBLE PRECISION, plus_50_month_11_approved DOUBLE PRECISION, plus_51_month_11_approved DOUBLE PRECISION, plus_52_month_11_approved DOUBLE PRECISION, plus_53_month_11_approved DOUBLE PRECISION, plus_54_month_11_approved DOUBLE PRECISION, plus_55_month_11_approved DOUBLE PRECISION, plus_56_month_11_approved DOUBLE PRECISION, plus_57_month_11_approved DOUBLE PRECISION, plus_58_month_11_approved DOUBLE PRECISION, plus_59_month_11_approved DOUBLE PRECISION, plus_60_month_11_approved DOUBLE PRECISION);
 CREATE TABLE actuary.rep_guru_suits (claimnumber CHARACTER VARYING(40) COLLATE "C", matterid NUMERIC, incidentid NUMERIC, casenumber CHARACTER VARYING(128) COLLATE "C", claimcreatedate DATE, claim_ins_type CHARACTER VARYING, incident_type CHARACTER VARYING(256) COLLATE "C", new_regionname TEXT, extcompany CHARACTER VARYING, extinsurancecompanyname CHARACTER VARYING(256) COLLATE "ru_RU", product CHARACTER VARYING(256) COLLATE "C", casca_claim_type TEXT, guru_category_id TEXT COLLATE "C", guru_category_id_2020 TEXT COLLATE "C", guru_c_accounting_group_id TEXT COLLATE "C", guru_form_162_code TEXT COLLATE "C", arm_ekis_policyid TEXT COLLATE "C", arm_ekis_category_id CHARACTER VARYING COLLATE "C", arm_ekis_category_id_2020 CHARACTER VARYING COLLATE "C", arm_ekis_regionname TEXT, arm_ekis_accidentdate TEXT, arm_ekis_salechannel2008 TEXT, arm_ekis_salechannelname CHARACTER VARYING, arm_ekis_c_accounting_group_id CHARACTER VARYING, arm_ekis_form_162_code CHARACTER VARYING, arm_ekis_is_partner TEXT, is_exists_re_note INTEGER, claim_level_risk CHARACTER VARYING(256) COLLATE "C", is_subrogation_exists CHARACTER VARYING, is_subrogation_flag CHARACTER VARYING, subrogation_type CHARACTER VARYING(256) COLLATE "C", suit_stage CHARACTER VARYING(256) COLLATE "C", pd_suit_stage CHARACTER VARYING, suit_type CHARACTER VARYING(256) COLLATE "C", courttype CHARACTER VARYING COLLATE "C", courtname CHARACTER VARYING COLLATE "C", courtregion CHARACTER VARYING COLLATE "C", courtnewregion CHARACTER VARYING, courtrayon CHARACTER VARYING COLLATE "C", courtnaselpunkt CHARACTER VARYING COLLATE "C", accidentdate DATE, inc_reserves_sum NUMERIC, inc_approved_sum NUMERIC, inc_approved_dp_sum NUMERIC, inc_app_sum_wout_suit NUMERIC, inc_app_sum_wout_suit_costs NUMERIC, was_paid INTEGER, inc_app_chk_cnt_wout_suit BIGINT, reserves_sum NUMERIC, approved_sum NUMERIC, approved_dp_sum NUMERIC, max_app_dp_date DATE, approved_sum_wout_suit NUMERIC, approved_1_date_wout_suit DATE, inc_perv_uu_date DATE, approved_1_type TEXT COLLATE "C", matter_approved_sum_main NUMERIC, matter_approved_sum_costs NUMERIC, mat_clm_approved_sum_bef_suit NUMERIC, matter_approved_sum_bef_suit NUMERIC, min_matter_approved_date DATE, min_matter_costs_app_date DATE, max_matter_costs_app_date DATE, min_clm_app_bef_suit_date DATE, min_mat_app_bef_suit_date DATE, max_matter_buh_approved_date DATE, max_matter_costs_buh_app_date DATE, max_matter_transaction_date DATE, max_matter_trnsctn_date_costs DATE, createtime_act_prav_poz DATE, policy_series CHARACTER VARYING(50) COLLATE "C", policy_number CHARACTER VARYING(100), writtenpremiumdate DATE, d1 DATE, d2 DATE, dc DATE, incident_liability_sum NUMERIC, insurant_name TEXT COLLATE "C", plaintiff_count INTEGER, plaintiff CHARACTER VARYING COLLATE "C", plaintiff_type CHARACTER VARYING, responsible CHARACTER VARYING COLLATE "C", responsible_type CHARACTER VARYING, other CHARACTER VARYING COLLATE "C", other_type CHARACTER VARYING, suit_work_begin_start_date DATE, suit_work_begin_end_date DATE, suitacceptdate DATE, first_suitaccsum_all NUMERIC, first_suitaccsum_main NUMERIC, first_suitaccsum_penalty NUMERIC, first_suitaccsum_other NUMERIC, first_suitaccsum_poshlina NUMERIC, first_suitaccsum_lawer NUMERIC, first_suitaccsum_outlay NUMERIC, suitacceptedsum_all NUMERIC, suitapprovedsum_all NUMERIC, suitacceptedsum_main NUMERIC, suitapprovedsum_main NUMERIC, suitacceptedsum_penalty NUMERIC, suitapprovedsum_penalty NUMERIC, suitacceptedsum_other NUMERIC, suitapprovedsum_other NUMERIC, suitacceptedsum_poshlina NUMERIC, suitapprovedsum_poshlina NUMERIC, suitacceptedsum_lawer NUMERIC, suitapprovedsum_lawer NUMERIC, suitacceptedsum_outlay NUMERIC, suitapprovedsum_outlay NUMERIC, suitapproveddate DATE, suit_work_end_date1_min DATE, suit_work_end_date2_min DATE, suit_work_end_date1_max DATE, suit_work_end_date2_max DATE, is_suit_appr_sum_main_not_def INTEGER, incident_all_suits_main NUMERIC, sittingdate DATE, courtsittingresult CHARACTER VARYING(256) COLLATE "C", isrgsappeal CHARACTER VARYING(1) COLLATE "C", appealsenddate DATE, appealdeterminationdate DATE, suitappealsum_all NUMERIC, suitappealsum_main NUMERIC, suitappealsum_penalty NUMERIC, suitappealsum_other NUMERIC, suitappealsum_poshlina NUMERIC, suitappealsum_lawer NUMERIC, suitappealsum_outlay NUMERIC, is_suit_apl_sum_main_not_def INTEGER, is_need_reinsurance TEXT, is_policy_from_e_garant TEXT, is_pvu CHARACTER VARYING, currency_and_reserve_date TEXT COLLATE "C", appealcourtname TEXT COLLATE "C", is_capital_insurance INTEGER, category_id_final TEXT COLLATE "C", category_id_2020_final CHARACTER VARYING COLLATE "C", c_accounting_group_id_final TEXT COLLATE "C", regionname_final TEXT, form_162_code_final TEXT COLLATE "C", rn INTEGER, accidentdate_final DATE, rgs_role TEXT, accidentquarter_final REAL, is_policy_authorized CHARACTER VARYING, is_in_approved INTEGER, is_in_incurred_but_not_in_app INTEGER, suit_approved_quarter TEXT, days_btw_suitapp_and_pay_main INTEGER, days_btw_suitapp_and_pay_costs INTEGER, sysmoment TIMESTAMP(6) WITHOUT TIME ZONE);
 COMMENT ON TABLE actuary.rep_guru_suits IS '# Отчет ГУРУ: иски';
 COMMENT ON COLUMN actuary.rep_guru_suits.claimnumber IS '# Номер убытка';
@@ -8433,7 +8439,7 @@ SELECT
     policy_series,
     contract_id,
     extcompany,
-    extinsurancecompany,
+    extinsurancecompany,  --1
     currency,
     contractdate,
     policyproduct_id,
@@ -8924,7 +8930,7 @@ SELECT
     cp.policy_series,
     cp.contract_id,
     cp.extcompany,
-    cp.extinsurancecompany,
+    cp.extinsurancecompany,  --2
     cp.currency,
     cp.contractdate,
     cp.policyproduct_id,
@@ -9727,6 +9733,9 @@ group by contract_id;
 
 CREATE unique INDEX IF NOT EXISTS contract_ort_dimensions_is_claim_by_contract_id_idx ON actuary.contract_ort_dimensions_is_claim_by_contract_id (contract_id);
 ANALYZE actuary.contract_ort_dimensions_is_claim_by_contract_id;
+
+PERFORM actuary.logz(v_pack_name, 'rebuid_objects_ort', 'finished', 'step99', v_row_count);
+
 
 end if;
 raise notice '>> ort @EDW успешно пересобраны по скрипту <<';
@@ -13188,6 +13197,752 @@ $body$ LANGUAGE plpgsql
 /
 COMMENT ON FUNCTION actuary.xls_msfo_rfs(integer, date, character varying) IS '# МСФО: данные RFS <<< xls_msfo_rfs, ac_etl_check_edw';
 --/
+CREATE PROCEDURE actuary.rep_guru_kasko_triangle (p_indent integer) 
+ LANGUAGE plpgsql
+AS $body$
+--- Kazakov 17.07.2026
+--- Полный расчет и транспонирование треугольников развития (понесённых несудебных убытков) КАСКО (1-60 мес.)
+
+/*
+do $$
+begin
+	Call actuary.rep_guru_kasko_triangle(3);
+end $$
+ -- select * from actuary.rep_guru_kasko_triangle_r
+*/
+
+declare
+    v_pack_name          varchar := 'rep_guru_kasko_triangle';
+    p_procedure_name     varchar := 'rep_guru_kasko_triangle';
+    v_row_count          integer := 0;
+    v_sql                text;
+    v_max_accident_month varchar(10) := to_char(current_date, 'YYYYMM');
+    v_months_count       integer := 60;
+    p_check              integer := 1;
+    p____indent          integer := (3+.0)::integer;
+    i                    integer;
+begin
+perform actuary.logz(v_pack_name, 'rep_guru_kasko_triangle', 'started', 'step00', 0);
+
+if 1=1 then
+
+-- ============================================================================
+-- ШАГ 1. Подготовка базовых параметров полисов и убытков (rep_guru_kasko_tr_cp)
+-- ============================================================================
+DROP TABLE IF EXISTS actuary.rep_guru_kasko_tr_cp;
+
+CREATE TABLE actuary.rep_guru_kasko_tr_cp AS
+SELECT 
+    cp.contract_id,
+    cp.policy_series,
+    cp.policy_number,
+    cp.claim_id,
+    cp.claimnumber,
+    cp.claim_level_risk,
+    cp.claim_ins_type,
+    cp.lossdate::date,
+    cp.accidenttype,
+    
+    -- признаки КАСКО
+    
+    null::text as product_program_type,
+    null::text as objectclass,
+
+    -1 as is_total_loss, --kms cp.is_total_loss,
+    CASE 
+        WHEN cp.claim_level_risk = 'Кража, угон (в отсутствие водителя и/или пассажиров застрахованного ТС)' 
+             OR cp.accidenttype = 'Угон'
+        THEN 1 
+        ELSE 0 
+    END AS is_theft,
+    
+    -- агрегированные покрытия (по exposure)
+    (
+        SELECT --string_agg(DISTINCT coveragesubtype, ', ')
+                 string_agg(DISTINCT cc.name, ', ')             
+        FROM actuary.ccd_claim_policy_incident_exposure e
+         join core.claim_coveragetype cc on cc.code = e.coveragesubtype
+     -- where claim_id ='guru|13564537'
+        WHERE claim_id = cp.claim_id
+    ) AS coverages,
+    
+    COALESCE(ort.is_capital_insurance::integer, 0) AS is_capital_insurance,            
+    COALESCE(ort.contract_option::text, 'нд') AS contract_option,
+    COALESCE(ort.is_partner::text, 'нд') AS is_partner,
+    COALESCE(ort.sale_channel_groupmk_name::text, 'нд') AS sale_channel_groupmk_name,
+    COALESCE(ort.category_id::text, 'нд') AS category_id,
+    COALESCE(ort.category_id_2020::text, 'нд') AS category_id_2020,    
+    COALESCE(ort.planning_region_name::text, 'нд') AS planning_region_name,   
+    
+    COALESCE(ort.is_policy_from_ea::text, 'нд') AS is_policy_from_ea,
+    COALESCE(ort.is_policy_from_e_garant::text, 'нд') AS is_policy_from_e_garant,
+    COALESCE(ort.is_need_reinsurance::text, 'нд') AS is_need_reinsurance,
+    COALESCE(ort.accepted_for_reinsurance_main::text, 'нд') AS accepted_for_reinsurance_main,
+    
+    TO_CHAR(cp.contractdate, 'YYYYMM') AS d1_month, 
+    TO_CHAR(cp.lossdate, 'YYYYMM') AS accident_month
+FROM actuary.ccd_claim_policy cp
+LEFT JOIN actuary.contract_ort_dimensions_is_claim_by_contract_id ort ON ort.contract_id = cp.contract_id
+          where CP.policytype_code IN ('001', -- 'Авто Защита (А)',
+                                       '002', -- 'Авто Защита (Б)',
+                                       '003', -- 'Авто Защита (В)',
+                                       '005', -- 'Авто Защита (Д)',
+                                       '007', -- 'КАСКО иные продукты (№№ 45, 102, 158, 171, 217, 69кс)',
+                                       '008', -- 'РМ КАСКО',
+                                       '516', -- 'Элементарное КАСКО',
+                                       '693', -- 'КАСКО GWPC',
+                                       '725', -- 'КАСКО. Профессионал GW',
+                                       '745'  -- 'Правила (№ 229) Страхование финансовых рисков (GAP страхование)'
+                                       )  
+  AND lossdate >= '2016-01-01'::date 
+  AND cp.claim_id LIKE 'guru%'
+/*---kms  AND (cp.extcompany IS NULL OR LOWER(cp.extinsurancecompany) LIKE '%капитал%страхован%' OR cp.iscapitalinsurancerelated = 1)
+
+select --extinsurancecompany,
+distinct extcompany FROM actuary.ccd_claim_policy cp 
+--where extinsurancecompany is not null
+where extcompany IS not NULL 
+*/
+
+  and (upper(policytype) not like '%РНКБС%' ) --kms20251016 
+  AND p_check = 1;
+
+get diagnostics v_row_count := ROW_COUNT;                        
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'rep_guru_kasko_tr_cp created', 'step01', v_row_count);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rep_guru_kasko_tr_cp_claim_id_idx ON actuary.rep_guru_kasko_tr_cp (claim_id);
+CREATE INDEX IF NOT EXISTS rep_guru_kasko_tr_cp_claimnumber_idx ON actuary.rep_guru_kasko_tr_cp (claimnumber);
+ANALYZE actuary.rep_guru_kasko_tr_cp;
+
+-- ============================================================================
+-- ШАГ 2. Обогащение атрибутами из первых форм КАСКО
+-- (аналогично Oracle: обновляем product_program_type и objectclass)
+-- ============================================================================
+-- Сначала создадим вспомогательную таблицу с агрегированными атрибутами из форм
+DROP TABLE IF EXISTS actuary.rep_guru_kasko_tr_attrs;
+
+CREATE TABLE actuary.rep_guru_kasko_tr_attrs AS
+/*kms
+SELECT 
+    policyid,
+    string_agg(DISTINCT product_program_type, ', ') AS product_program_type,
+    string_agg(DISTINCT objectclass, ', ') AS objectclass
+FROM (
+    SELECT 
+        CASE 
+            WHEN source = 'arm4' THEN 'arm4|' || objectid
+            WHEN source = 'ekis' THEN 'ekis|' || objectid
+            ELSE objectid   -- для gwpc
+        END AS policyid,
+        product_program_type,
+        objectclass
+    FROM cdm_analysis_out.ac_kasko_form1_h_curr_part_view
+    WHERE rep_period = date_trunc('month', current_date - interval '1 month')::date
+    UNION ALL
+    SELECT 
+        objectid AS policyid,
+        product_program_type,
+        objectclass
+    FROM cdm_analysis_out.ac_kasko_form1_h_curr_part_attrs_view
+    WHERE rep_period = date_trunc('month', current_date - interval '1 month')::date
+) t
+GROUP BY policyid;
+*/
+SELECT 
+    policyid,
+    string_agg(DISTINCT product_program_type, ', ') AS product_program_type,
+    string_agg(DISTINCT objectclass, ', ') AS objectclass
+FROM (
+
+    SELECT 
+        policyid AS policyid,
+        product_program_type,
+        objectclass
+    FROM cdm_analysis_out.ac_kasko_form1_h
+	WHERE rep_period = date_trunc('month', current_date - interval '1 month')::date ---<<<<<<<<<<<<<<-----kms
+    and p_check = 1
+) t
+GROUP BY policyid;
+
+get diagnostics v_row_count := ROW_COUNT;                        
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'rep_guru_kasko_tr_attrs created', 'step02', v_row_count);
+
+CREATE UNIQUE INDEX IF NOT EXISTS rep_guru_kasko_tr_attrs_policyid_idx ON actuary.rep_guru_kasko_tr_attrs (policyid);
+ANALYZE actuary.rep_guru_kasko_tr_attrs;
+
+-- Обновляем основную таблицу атрибутами
+UPDATE actuary.rep_guru_kasko_tr_cp AS dist
+SET 
+    product_program_type = src.product_program_type,
+    objectclass = src.objectclass
+FROM actuary.rep_guru_kasko_tr_attrs src
+WHERE src.policyid = dist.contract_id;
+
+get diagnostics v_row_count := ROW_COUNT;                        
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'rep_guru_kasko_tr_cp updated', 'step03', v_row_count);
+
+
+-- ============================================================================
+-- ШАГ 3. Построение широкого треугольника развития от 1 до 60 месяцев (rep_guru_kasko_triangle)
+-- ============================================================================
+DROP TABLE IF EXISTS actuary.rep_guru_kasko_triangle;
+CREATE TABLE actuary.rep_guru_kasko_triangle AS
+SELECT 
+    cp.contract_id,
+    cp.policy_series,
+    cp.policy_number,
+    cp.claimnumber,    
+    cp.is_capital_insurance,
+    cp.claim_level_risk,
+    cp.claim_ins_type,
+    cp.lossdate,
+    cp.is_total_loss,
+    cp.is_theft,
+    cp.coverages,
+    
+    cp.contract_option,
+    cp.is_partner,
+    cp.sale_channel_groupmk_name,
+    cp.category_id,
+    cp.category_id_2020,
+    cp.planning_region_name,
+    cp.d1_month,
+    cp.accident_month,
+    
+    cp.is_policy_from_ea,
+    cp.is_policy_from_e_garant,
+    cp.is_need_reinsurance,
+    cp.accepted_for_reinsurance_main,
+      
+    cp.product_program_type,
+    cp.objectclass,
+    
+    -- Резервы: 1-60 месяцев
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '1 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_1_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '2 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_2_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '3 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_3_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '4 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_4_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '5 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_5_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '6 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_6_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '7 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_7_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '8 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_8_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '9 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_9_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '10 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_10_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '11 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_11_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '12 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_12_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '13 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_13_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '14 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_14_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '15 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_15_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '16 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_16_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '17 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_17_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '18 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_18_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '19 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_19_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '20 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_20_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '21 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_21_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '22 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_22_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '23 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_23_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '24 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_24_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '25 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_25_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '26 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_26_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '27 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_27_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '28 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_28_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '29 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_29_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '30 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_30_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '31 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_31_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '32 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_32_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '33 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_33_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '34 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_34_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '35 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_35_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '36 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_36_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '37 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_37_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '38 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_38_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '39 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_39_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '40 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_40_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '41 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_41_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '42 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_42_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '43 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_43_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '44 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_44_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '45 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_45_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '46 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_46_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '47 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_47_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '48 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_48_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '49 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_49_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '50 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_50_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '51 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_51_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '52 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_52_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '53 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_53_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '54 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_54_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '55 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_55_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '56 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_56_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '57 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_57_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '58 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_58_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '59 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_59_MONTH_11_RESERVE,
+    sum(case when RA.createtime__claim_transaction < DATE_TRUNC('month', cp.lossdate) + INTERVAL '60 month'  + ((3+.0)::integer || ' days')::INTERVAL THEN -RA.value_rub else 0 end *(case when subtype__claim_transaction='Reserve' then -1 else 1 end) ) PLUS_60_MONTH_11_RESERVE,
+
+    -- Выплаты: 1-60 месяцев
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '1 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_1_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '2 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_2_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '3 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_3_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '4 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_4_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '5 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_5_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '6 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_6_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '7 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_7_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '8 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_8_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '9 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_9_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '10 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_10_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '11 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_11_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '12 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_12_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '13 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_13_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '14 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_14_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '15 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_15_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '16 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_16_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '17 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_17_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '18 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_18_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '19 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_19_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '20 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_20_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '21 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_21_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '22 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_22_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '23 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_23_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '24 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_24_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '25 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_25_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '26 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_26_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '27 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_27_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '28 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_28_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '29 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_29_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '30 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_30_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '31 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_31_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '32 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_32_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '33 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_33_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '34 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_34_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '35 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_35_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '36 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_36_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '37 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_37_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '38 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_38_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '39 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_39_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '40 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_40_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '41 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_41_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '42 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_42_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '43 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_43_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '44 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_44_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '45 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_45_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '46 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_46_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '47 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_47_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '48 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_48_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '49 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_49_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '50 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_50_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '51 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_51_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '52 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_52_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '53 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_53_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '54 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_54_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '55 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_55_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '56 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_56_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '57 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_57_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '58 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_58_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '59 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_59_MONTH_11_APPROVED,
+    sum(case when subtype__claim_transaction ='Payment' and coalesce(RA.REFUNDCATEGORY_name, 'нд') not in ('Выплата по исполнительному листу', 'Выплата до решения суда') and
+             RA.updatetime__claim_transaction < date_trunc('month', CP.LOSSDATE) + interval '60 month' + ( (3+.0)::integer  * interval '1 day')
+        then RA.value_rub
+        else 0
+    end) PLUS_60_MONTH_11_APPROVED
+
+FROM actuary.rep_guru_kasko_tr_cp cp
+JOIN actuary.ccd_claim_policy_incident_exposure_transaction ra 
+    ON ra.claim_id = cp.claim_id
+WHERE coalesce(paymentstatus, 'issued') = 'issued' 
+  AND ra.costtype_name = 'Стоимость убытка'
+  AND coalesce(ra.REFUNDCATEGORY_name, 'нд') <> 'Выплата по удостоверению ФУ'
+  AND DATE_TRUNC('day', ra.createtime__claim_transaction) <= 
+      ( (3+.0)::integer  || '.' || TO_CHAR(CURRENT_DATE, 'MM.YYYY'))::DATE
+GROUP BY 
+    cp.contract_id, 
+    cp.policy_series, 
+    cp.policy_number, 
+    cp.claimnumber, 
+    cp.is_capital_insurance,
+    cp.claim_level_risk,
+    cp.claim_ins_type,
+    cp.lossdate,
+    cp.is_total_loss,
+    cp.is_theft,
+    cp.coverages,
+    cp.contract_option,
+    cp.is_partner,
+    cp.sale_channel_groupmk_name,
+    cp.category_id,
+    cp.category_id_2020,
+    cp.planning_region_name,
+    cp.d1_month,
+    cp.accident_month,
+    cp.is_policy_from_ea,
+    cp.is_policy_from_e_garant,
+    cp.is_need_reinsurance,
+    cp.accepted_for_reinsurance_main,
+    cp.product_program_type,
+    cp.objectclass;
+
+get diagnostics v_row_count := ROW_COUNT;                        
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'rep_guru_kasko_triangle created', 'step05', v_row_count);
+
+CREATE INDEX IF NOT EXISTS rep_guru_kasko_triangle_claimnumber_idx ON actuary.rep_guru_kasko_triangle (claimnumber);
+ANALYZE actuary.rep_guru_kasko_triangle;
+
+end if;
+
+-- ============================================================================
+-- ШАГ 4. Создание и транспонирование итоговой витрины (rep_guru_kasko_triangle_r)
+-- ============================================================================
+DROP TABLE IF EXISTS actuary.rep_guru_kasko_triangle_r;
+CREATE TABLE actuary.rep_guru_kasko_triangle_r (
+    planning_region_name varchar NULL,
+    is_capital_insurance numeric NULL,
+    category_id varchar NULL,
+    category_id_2020 varchar NULL,
+    contract_option varchar NULL,
+    is_partner varchar NULL,
+    sale_channel_groupmk_name varchar NULL,
+    d1_month varchar(6) NULL,
+    accident_month varchar(6) NULL,
+    development_month integer NULL,
+    is_policy_from_ea varchar NULL,
+    is_policy_from_e_garant varchar NULL,
+    is_need_reinsurance varchar NULL,
+    is_total_loss integer NULL,
+    is_theft integer NULL,
+    coverages varchar NULL,
+    product_program_type varchar NULL,
+    objectclass varchar NULL,
+    reservesum numeric NULL,
+    reservecount integer NULL,
+    approvedsum numeric NULL,
+    approvedcount integer NULL
+);
+
+-- Транспонирующий цикл по 60 месяцам с динамическим сдвигом дат
+FOR i IN 1..v_months_count LOOP
+    v_sql := 'INSERT INTO actuary.rep_guru_kasko_triangle_r (' ||
+             '    planning_region_name,' ||
+             '    is_capital_insurance,' ||
+             '    category_id,' ||
+             '    category_id_2020,' ||
+             '    contract_option,' ||
+             '    is_partner,' ||
+             '    sale_channel_groupmk_name,' ||
+             '    d1_month,' ||
+             '    accident_month,' ||
+             '    development_month,' ||
+             '    is_policy_from_ea,' ||
+             '    is_policy_from_e_garant,' ||
+             '    is_need_reinsurance,' ||
+             '    is_total_loss,' ||
+             '    is_theft,' ||
+             '    coverages,' ||
+             '    product_program_type,' ||
+             '    objectclass,' ||
+             '    reservesum,' ||
+             '    reservecount,' ||
+             '    approvedsum,' ||
+             '    approvedcount' ||
+             ') ' ||
+             'SELECT ' ||
+             '    planning_region_name,' ||
+             '    is_capital_insurance,' ||
+             '    category_id,' ||
+             '    category_id_2020,' ||
+             '    contract_option,' ||
+             '    is_partner,' ||
+             '    sale_channel_groupmk_name,' ||
+             '    d1_month,' ||
+             '    accident_month,' ||
+             '    ' || i || ' AS development_month,' ||
+             '    is_policy_from_ea,' ||
+             '    is_policy_from_e_garant,' ||
+             '    is_need_reinsurance,' ||
+             '    is_total_loss,' ||
+             '    is_theft,' ||
+             '    coverages,' ||
+             '    product_program_type,' ||
+             '    objectclass,' ||
+             '    SUM(plus_' || i || '_month_11_approved) AS reservesum,' ||
+             '    SUM(CASE WHEN plus_' || i || '_month_11_approved > 0 THEN 1 ELSE 0 END) AS reservecount,' ||
+             '    SUM(plus_' || i || '_month_11_approved) AS approvedsum,' ||
+             '    SUM(CASE WHEN plus_' || i || '_month_11_approved > 0 THEN 1 ELSE 0 END) AS approvedcount ' ||
+             'FROM actuary.rep_guru_kasko_triangle ' ||
+             'WHERE CAST(accident_month AS INTEGER) < ' || CAST(v_max_accident_month AS INTEGER) || ' ' ||
+             'GROUP BY ' ||
+             '    planning_region_name,' ||
+             '    is_capital_insurance,' ||
+             '    category_id,' ||
+             '    category_id_2020,' ||
+             '    contract_option,' ||
+             '    is_partner,' ||
+             '    sale_channel_groupmk_name,' ||
+             '    d1_month,' ||
+             '    accident_month,' ||
+             '    is_policy_from_ea,' ||
+             '    is_policy_from_e_garant,' ||
+             '    is_need_reinsurance,' ||
+             '    is_total_loss,' ||
+             '    is_theft,' ||
+             '    coverages,' ||
+             '    product_program_type,' ||
+             '    objectclass';
+
+    EXECUTE v_sql;
+
+    v_max_accident_month := TO_CHAR(
+        TO_DATE(v_max_accident_month, 'YYYYMM') - INTERVAL '1 month', 
+        'YYYYMM'
+    );
+END LOOP;
+
+GET DIAGNOSTICS v_row_count := ROW_COUNT;
+PERFORM actuary.logz(v_pack_name, 'rep_guru_kasko_triangle_r', 'finished', 'step04', v_row_count);
+
+CREATE INDEX IF NOT EXISTS rep_guru_kasko_triangle_r_accident_month_idx ON actuary.rep_guru_kasko_triangle_r (accident_month);
+ANALYZE actuary.rep_guru_kasko_triangle_r;
+
+PERFORM actuary.logz(v_pack_name, 'build_kasko_triangles', 'finished', 'step100', 0);
+
+END
+$body$
+/
+--/
 CREATE PROCEDURE actuary.rep_guru_osago_triangle (p_indent integer) 
  LANGUAGE plpgsql
 AS $body$
@@ -13204,6 +13959,7 @@ end $$
 
 declare
     v_pack_name          varchar := 'rep_guru_osago_triangle';
+    p_procedure_name     varchar := 'rep_guru_osago_triangle';
     v_row_count          integer := 0;
     v_sql                text;
     v_max_accident_month varchar(10) := to_char(current_date, 'YYYYMM');
