@@ -1,5 +1,431 @@
-CREATE INDEX IF NOT EXISTS idx_rep_guru_osago_triangle_claimnumber 
-    ON actuary.rep_guru_osago_triangle (claimnumber);
+SELECT
+    COALESCE(a.claimnumber, b.claimnumber) AS claimnumber,
 
-CREATE INDEX IF NOT EXISTS idx_rep_guru_osago_triangle_repsrv_claimnumber 
-    ON actuary.rep_guru_osago_triangle_repsrv (claimnumber);
+    -- ===== Текстовые / ключевые поля (с приведением к TEXT) =====
+    a.planning_region_name::TEXT               AS pg_region,
+    b.regionname_final::TEXT                   AS ora_region,
+    a.contract_option::TEXT                    AS pg_contract_option,
+    b.arm_ekis_contractoption::TEXT            AS ora_contract_option,
+    a.is_partner::TEXT                         AS pg_is_partner,
+    b.arm_ekis_is_partner::TEXT                AS ora_is_partner,
+    a.sale_channel_groupmk_name::TEXT          AS pg_sale_channel,
+    b.salechannelfullname_de::TEXT             AS ora_sale_channel,
+    a.category_id::TEXT                        AS pg_category_id,
+    b.category_id_final::TEXT                  AS ora_category_id,
+    a.category_id_2020::TEXT                   AS pg_category_id_2020,
+    b.category_id_2020_final::TEXT             AS ora_category_id_2020,
+    a.is_capital_insurance::TEXT               AS pg_is_capital_insurance,
+    b.is_capital_insurance::TEXT               AS ora_is_capital_insurance,
+    a.claim_level_risk::TEXT                   AS pg_claim_level_risk,
+    b.claim_level_risk::TEXT                   AS ora_claim_level_risk,
+    a.claim_ins_type::TEXT                     AS pg_claim_ins_type,
+    b.claim_ins_type::TEXT                     AS ora_claim_ins_type,
+    a.is_pvu::TEXT                             AS pg_is_pvu,
+    b.is_pvu::TEXT                             AS ora_is_pvu,
+    a.is_policy_from_ea::TEXT                  AS pg_is_policy_from_ea,
+    b.is_policy_from_ea::TEXT                  AS ora_is_policy_from_ea,
+    a.is_policy_from_e_garant::TEXT            AS pg_is_policy_from_e_garant,
+    b.is_policy_from_e_garant::TEXT            AS ora_is_policy_from_e_garant,
+    a.is_need_reinsurance::TEXT                AS pg_is_need_reinsurance,
+    b.is_need_reinsurance::TEXT                AS ora_is_need_reinsurance,
+    a.accepted_for_reinsurance_main::TEXT      AS pg_accepted_for_reinsurance_main,
+    b.accepted_for_reinsurance_main::TEXT      AS ora_accepted_for_reinsurance_main,
+    a.osago_chain_number::TEXT                 AS pg_osago_chain_number,
+    b.osago_chain_number::TEXT                 AS ora_osago_chain_number,
+    a.d1_month::TEXT                           AS pg_d1_month,
+    b.d1_month::TEXT                           AS ora_d1_month,
+    a.accident_month::TEXT                     AS pg_accident_month,
+    b.accident_month::TEXT                     AS ora_accident_month,
+
+    -- ===== Числовые поля: резервы (Reserve) с приведением к NUMERIC =====
+    COALESCE(a.plus_1_month_11_reserve, 0)::NUMERIC   AS pg_reserve_1,
+    COALESCE(b.plus_1_month_11_reserve, 0)::NUMERIC   AS ora_reserve_1,
+    COALESCE(a.plus_2_month_11_reserve, 0)::NUMERIC   AS pg_reserve_2,
+    COALESCE(b.plus_2_month_11_reserve, 0)::NUMERIC   AS ora_reserve_2,
+    COALESCE(a.plus_3_month_11_reserve, 0)::NUMERIC   AS pg_reserve_3,
+    COALESCE(b.plus_3_month_11_reserve, 0)::NUMERIC   AS ora_reserve_3,
+    COALESCE(a.plus_4_month_11_reserve, 0)::NUMERIC   AS pg_reserve_4,
+    COALESCE(b.plus_4_month_11_reserve, 0)::NUMERIC   AS ora_reserve_4,
+    COALESCE(a.plus_5_month_11_reserve, 0)::NUMERIC   AS pg_reserve_5,
+    COALESCE(b.plus_5_month_11_reserve, 0)::NUMERIC   AS ora_reserve_5,
+    COALESCE(a.plus_6_month_11_reserve, 0)::NUMERIC   AS pg_reserve_6,
+    COALESCE(b.plus_6_month_11_reserve, 0)::NUMERIC   AS ora_reserve_6,
+    COALESCE(a.plus_7_month_11_reserve, 0)::NUMERIC   AS pg_reserve_7,
+    COALESCE(b.plus_7_month_11_reserve, 0)::NUMERIC   AS ora_reserve_7,
+    COALESCE(a.plus_8_month_11_reserve, 0)::NUMERIC   AS pg_reserve_8,
+    COALESCE(b.plus_8_month_11_reserve, 0)::NUMERIC   AS ora_reserve_8,
+    COALESCE(a.plus_9_month_11_reserve, 0)::NUMERIC   AS pg_reserve_9,
+    COALESCE(b.plus_9_month_11_reserve, 0)::NUMERIC   AS ora_reserve_9,
+    COALESCE(a.plus_10_month_11_reserve, 0)::NUMERIC  AS pg_reserve_10,
+    COALESCE(b.plus_10_month_11_reserve, 0)::NUMERIC  AS ora_reserve_10,
+    COALESCE(a.plus_11_month_11_reserve, 0)::NUMERIC  AS pg_reserve_11,
+    COALESCE(b.plus_11_month_11_reserve, 0)::NUMERIC  AS ora_reserve_11,
+    COALESCE(a.plus_12_month_11_reserve, 0)::NUMERIC  AS pg_reserve_12,
+    COALESCE(b.plus_12_month_11_reserve, 0)::NUMERIC  AS ora_reserve_12,
+    COALESCE(a.plus_13_month_11_reserve, 0)::NUMERIC  AS pg_reserve_13,
+    COALESCE(b.plus_13_month_11_reserve, 0)::NUMERIC  AS ora_reserve_13,
+    COALESCE(a.plus_14_month_11_reserve, 0)::NUMERIC  AS pg_reserve_14,
+    COALESCE(b.plus_14_month_11_reserve, 0)::NUMERIC  AS ora_reserve_14,
+    COALESCE(a.plus_15_month_11_reserve, 0)::NUMERIC  AS pg_reserve_15,
+    COALESCE(b.plus_15_month_11_reserve, 0)::NUMERIC  AS ora_reserve_15,
+    COALESCE(a.plus_16_month_11_reserve, 0)::NUMERIC  AS pg_reserve_16,
+    COALESCE(b.plus_16_month_11_reserve, 0)::NUMERIC  AS ora_reserve_16,
+    COALESCE(a.plus_17_month_11_reserve, 0)::NUMERIC  AS pg_reserve_17,
+    COALESCE(b.plus_17_month_11_reserve, 0)::NUMERIC  AS ora_reserve_17,
+    COALESCE(a.plus_18_month_11_reserve, 0)::NUMERIC  AS pg_reserve_18,
+    COALESCE(b.plus_18_month_11_reserve, 0)::NUMERIC  AS ora_reserve_18,
+    COALESCE(a.plus_19_month_11_reserve, 0)::NUMERIC  AS pg_reserve_19,
+    COALESCE(b.plus_19_month_11_reserve, 0)::NUMERIC  AS ora_reserve_19,
+    COALESCE(a.plus_20_month_11_reserve, 0)::NUMERIC  AS pg_reserve_20,
+    COALESCE(b.plus_20_month_11_reserve, 0)::NUMERIC  AS ora_reserve_20,
+    COALESCE(a.plus_21_month_11_reserve, 0)::NUMERIC  AS pg_reserve_21,
+    COALESCE(b.plus_21_month_11_reserve, 0)::NUMERIC  AS ora_reserve_21,
+    COALESCE(a.plus_22_month_11_reserve, 0)::NUMERIC  AS pg_reserve_22,
+    COALESCE(b.plus_22_month_11_reserve, 0)::NUMERIC  AS ora_reserve_22,
+    COALESCE(a.plus_23_month_11_reserve, 0)::NUMERIC  AS pg_reserve_23,
+    COALESCE(b.plus_23_month_11_reserve, 0)::NUMERIC  AS ora_reserve_23,
+    COALESCE(a.plus_24_month_11_reserve, 0)::NUMERIC  AS pg_reserve_24,
+    COALESCE(b.plus_24_month_11_reserve, 0)::NUMERIC  AS ora_reserve_24,
+    COALESCE(a.plus_25_month_11_reserve, 0)::NUMERIC  AS pg_reserve_25,
+    COALESCE(b.plus_25_month_11_reserve, 0)::NUMERIC  AS ora_reserve_25,
+    COALESCE(a.plus_26_month_11_reserve, 0)::NUMERIC  AS pg_reserve_26,
+    COALESCE(b.plus_26_month_11_reserve, 0)::NUMERIC  AS ora_reserve_26,
+    COALESCE(a.plus_27_month_11_reserve, 0)::NUMERIC  AS pg_reserve_27,
+    COALESCE(b.plus_27_month_11_reserve, 0)::NUMERIC  AS ora_reserve_27,
+    COALESCE(a.plus_28_month_11_reserve, 0)::NUMERIC  AS pg_reserve_28,
+    COALESCE(b.plus_28_month_11_reserve, 0)::NUMERIC  AS ora_reserve_28,
+    COALESCE(a.plus_29_month_11_reserve, 0)::NUMERIC  AS pg_reserve_29,
+    COALESCE(b.plus_29_month_11_reserve, 0)::NUMERIC  AS ora_reserve_29,
+    COALESCE(a.plus_30_month_11_reserve, 0)::NUMERIC  AS pg_reserve_30,
+    COALESCE(b.plus_30_month_11_reserve, 0)::NUMERIC  AS ora_reserve_30,
+    COALESCE(a.plus_31_month_11_reserve, 0)::NUMERIC  AS pg_reserve_31,
+    COALESCE(b.plus_31_month_11_reserve, 0)::NUMERIC  AS ora_reserve_31,
+    COALESCE(a.plus_32_month_11_reserve, 0)::NUMERIC  AS pg_reserve_32,
+    COALESCE(b.plus_32_month_11_reserve, 0)::NUMERIC  AS ora_reserve_32,
+    COALESCE(a.plus_33_month_11_reserve, 0)::NUMERIC  AS pg_reserve_33,
+    COALESCE(b.plus_33_month_11_reserve, 0)::NUMERIC  AS ora_reserve_33,
+    COALESCE(a.plus_34_month_11_reserve, 0)::NUMERIC  AS pg_reserve_34,
+    COALESCE(b.plus_34_month_11_reserve, 0)::NUMERIC  AS ora_reserve_34,
+    COALESCE(a.plus_35_month_11_reserve, 0)::NUMERIC  AS pg_reserve_35,
+    COALESCE(b.plus_35_month_11_reserve, 0)::NUMERIC  AS ora_reserve_35,
+    COALESCE(a.plus_36_month_11_reserve, 0)::NUMERIC  AS pg_reserve_36,
+    COALESCE(b.plus_36_month_11_reserve, 0)::NUMERIC  AS ora_reserve_36,
+    COALESCE(a.plus_37_month_11_reserve, 0)::NUMERIC  AS pg_reserve_37,
+    COALESCE(b.plus_37_month_11_reserve, 0)::NUMERIC  AS ora_reserve_37,
+    COALESCE(a.plus_38_month_11_reserve, 0)::NUMERIC  AS pg_reserve_38,
+    COALESCE(b.plus_38_month_11_reserve, 0)::NUMERIC  AS ora_reserve_38,
+    COALESCE(a.plus_39_month_11_reserve, 0)::NUMERIC  AS pg_reserve_39,
+    COALESCE(b.plus_39_month_11_reserve, 0)::NUMERIC  AS ora_reserve_39,
+    COALESCE(a.plus_40_month_11_reserve, 0)::NUMERIC  AS pg_reserve_40,
+    COALESCE(b.plus_40_month_11_reserve, 0)::NUMERIC  AS ora_reserve_40,
+    COALESCE(a.plus_41_month_11_reserve, 0)::NUMERIC  AS pg_reserve_41,
+    COALESCE(b.plus_41_month_11_reserve, 0)::NUMERIC  AS ora_reserve_41,
+    COALESCE(a.plus_42_month_11_reserve, 0)::NUMERIC  AS pg_reserve_42,
+    COALESCE(b.plus_42_month_11_reserve, 0)::NUMERIC  AS ora_reserve_42,
+    COALESCE(a.plus_43_month_11_reserve, 0)::NUMERIC  AS pg_reserve_43,
+    COALESCE(b.plus_43_month_11_reserve, 0)::NUMERIC  AS ora_reserve_43,
+    COALESCE(a.plus_44_month_11_reserve, 0)::NUMERIC  AS pg_reserve_44,
+    COALESCE(b.plus_44_month_11_reserve, 0)::NUMERIC  AS ora_reserve_44,
+    COALESCE(a.plus_45_month_11_reserve, 0)::NUMERIC  AS pg_reserve_45,
+    COALESCE(b.plus_45_month_11_reserve, 0)::NUMERIC  AS ora_reserve_45,
+    COALESCE(a.plus_46_month_11_reserve, 0)::NUMERIC  AS pg_reserve_46,
+    COALESCE(b.plus_46_month_11_reserve, 0)::NUMERIC  AS ora_reserve_46,
+    COALESCE(a.plus_47_month_11_reserve, 0)::NUMERIC  AS pg_reserve_47,
+    COALESCE(b.plus_47_month_11_reserve, 0)::NUMERIC  AS ora_reserve_47,
+    COALESCE(a.plus_48_month_11_reserve, 0)::NUMERIC  AS pg_reserve_48,
+    COALESCE(b.plus_48_month_11_reserve, 0)::NUMERIC  AS ora_reserve_48,
+    COALESCE(a.plus_49_month_11_reserve, 0)::NUMERIC  AS pg_reserve_49,
+    COALESCE(b.plus_49_month_11_reserve, 0)::NUMERIC  AS ora_reserve_49,
+    COALESCE(a.plus_50_month_11_reserve, 0)::NUMERIC  AS pg_reserve_50,
+    COALESCE(b.plus_50_month_11_reserve, 0)::NUMERIC  AS ora_reserve_50,
+    COALESCE(a.plus_51_month_11_reserve, 0)::NUMERIC  AS pg_reserve_51,
+    COALESCE(b.plus_51_month_11_reserve, 0)::NUMERIC  AS ora_reserve_51,
+    COALESCE(a.plus_52_month_11_reserve, 0)::NUMERIC  AS pg_reserve_52,
+    COALESCE(b.plus_52_month_11_reserve, 0)::NUMERIC  AS ora_reserve_52,
+    COALESCE(a.plus_53_month_11_reserve, 0)::NUMERIC  AS pg_reserve_53,
+    COALESCE(b.plus_53_month_11_reserve, 0)::NUMERIC  AS ora_reserve_53,
+    COALESCE(a.plus_54_month_11_reserve, 0)::NUMERIC  AS pg_reserve_54,
+    COALESCE(b.plus_54_month_11_reserve, 0)::NUMERIC  AS ora_reserve_54,
+    COALESCE(a.plus_55_month_11_reserve, 0)::NUMERIC  AS pg_reserve_55,
+    COALESCE(b.plus_55_month_11_reserve, 0)::NUMERIC  AS ora_reserve_55,
+    COALESCE(a.plus_56_month_11_reserve, 0)::NUMERIC  AS pg_reserve_56,
+    COALESCE(b.plus_56_month_11_reserve, 0)::NUMERIC  AS ora_reserve_56,
+    COALESCE(a.plus_57_month_11_reserve, 0)::NUMERIC  AS pg_reserve_57,
+    COALESCE(b.plus_57_month_11_reserve, 0)::NUMERIC  AS ora_reserve_57,
+    COALESCE(a.plus_58_month_11_reserve, 0)::NUMERIC  AS pg_reserve_58,
+    COALESCE(b.plus_58_month_11_reserve, 0)::NUMERIC  AS ora_reserve_58,
+    COALESCE(a.plus_59_month_11_reserve, 0)::NUMERIC  AS pg_reserve_59,
+    COALESCE(b.plus_59_month_11_reserve, 0)::NUMERIC  AS ora_reserve_59,
+    COALESCE(a.plus_60_month_11_reserve, 0)::NUMERIC  AS pg_reserve_60,
+    COALESCE(b.plus_60_month_11_reserve, 0)::NUMERIC  AS ora_reserve_60,
+
+    -- ===== Числовые поля: выплаты (Approved) с приведением к NUMERIC =====
+    COALESCE(a.plus_1_month_11_approved, 0)::NUMERIC  AS pg_approved_1,
+    COALESCE(b.plus_1_month_11_approved, 0)::NUMERIC  AS ora_approved_1,
+    COALESCE(a.plus_2_month_11_approved, 0)::NUMERIC  AS pg_approved_2,
+    COALESCE(b.plus_2_month_11_approved, 0)::NUMERIC  AS ora_approved_2,
+    COALESCE(a.plus_3_month_11_approved, 0)::NUMERIC  AS pg_approved_3,
+    COALESCE(b.plus_3_month_11_approved, 0)::NUMERIC  AS ora_approved_3,
+    COALESCE(a.plus_4_month_11_approved, 0)::NUMERIC  AS pg_approved_4,
+    COALESCE(b.plus_4_month_11_approved, 0)::NUMERIC  AS ora_approved_4,
+    COALESCE(a.plus_5_month_11_approved, 0)::NUMERIC  AS pg_approved_5,
+    COALESCE(b.plus_5_month_11_approved, 0)::NUMERIC  AS ora_approved_5,
+    COALESCE(a.plus_6_month_11_approved, 0)::NUMERIC  AS pg_approved_6,
+    COALESCE(b.plus_6_month_11_approved, 0)::NUMERIC  AS ora_approved_6,
+    COALESCE(a.plus_7_month_11_approved, 0)::NUMERIC  AS pg_approved_7,
+    COALESCE(b.plus_7_month_11_approved, 0)::NUMERIC  AS ora_approved_7,
+    COALESCE(a.plus_8_month_11_approved, 0)::NUMERIC  AS pg_approved_8,
+    COALESCE(b.plus_8_month_11_approved, 0)::NUMERIC  AS ora_approved_8,
+    COALESCE(a.plus_9_month_11_approved, 0)::NUMERIC  AS pg_approved_9,
+    COALESCE(b.plus_9_month_11_approved, 0)::NUMERIC  AS ora_approved_9,
+    COALESCE(a.plus_10_month_11_approved, 0)::NUMERIC AS pg_approved_10,
+    COALESCE(b.plus_10_month_11_approved, 0)::NUMERIC AS ora_approved_10,
+    COALESCE(a.plus_11_month_11_approved, 0)::NUMERIC AS pg_approved_11,
+    COALESCE(b.plus_11_month_11_approved, 0)::NUMERIC AS ora_approved_11,
+    COALESCE(a.plus_12_month_11_approved, 0)::NUMERIC AS pg_approved_12,
+    COALESCE(b.plus_12_month_11_approved, 0)::NUMERIC AS ora_approved_12,
+    COALESCE(a.plus_13_month_11_approved, 0)::NUMERIC AS pg_approved_13,
+    COALESCE(b.plus_13_month_11_approved, 0)::NUMERIC AS ora_approved_13,
+    COALESCE(a.plus_14_month_11_approved, 0)::NUMERIC AS pg_approved_14,
+    COALESCE(b.plus_14_month_11_approved, 0)::NUMERIC AS ora_approved_14,
+    COALESCE(a.plus_15_month_11_approved, 0)::NUMERIC AS pg_approved_15,
+    COALESCE(b.plus_15_month_11_approved, 0)::NUMERIC AS ora_approved_15,
+    COALESCE(a.plus_16_month_11_approved, 0)::NUMERIC AS pg_approved_16,
+    COALESCE(b.plus_16_month_11_approved, 0)::NUMERIC AS ora_approved_16,
+    COALESCE(a.plus_17_month_11_approved, 0)::NUMERIC AS pg_approved_17,
+    COALESCE(b.plus_17_month_11_approved, 0)::NUMERIC AS ora_approved_17,
+    COALESCE(a.plus_18_month_11_approved, 0)::NUMERIC AS pg_approved_18,
+    COALESCE(b.plus_18_month_11_approved, 0)::NUMERIC AS ora_approved_18,
+    COALESCE(a.plus_19_month_11_approved, 0)::NUMERIC AS pg_approved_19,
+    COALESCE(b.plus_19_month_11_approved, 0)::NUMERIC AS ora_approved_19,
+    COALESCE(a.plus_20_month_11_approved, 0)::NUMERIC AS pg_approved_20,
+    COALESCE(b.plus_20_month_11_approved, 0)::NUMERIC AS ora_approved_20,
+    COALESCE(a.plus_21_month_11_approved, 0)::NUMERIC AS pg_approved_21,
+    COALESCE(b.plus_21_month_11_approved, 0)::NUMERIC AS ora_approved_21,
+    COALESCE(a.plus_22_month_11_approved, 0)::NUMERIC AS pg_approved_22,
+    COALESCE(b.plus_22_month_11_approved, 0)::NUMERIC AS ora_approved_22,
+    COALESCE(a.plus_23_month_11_approved, 0)::NUMERIC AS pg_approved_23,
+    COALESCE(b.plus_23_month_11_approved, 0)::NUMERIC AS ora_approved_23,
+    COALESCE(a.plus_24_month_11_approved, 0)::NUMERIC AS pg_approved_24,
+    COALESCE(b.plus_24_month_11_approved, 0)::NUMERIC AS ora_approved_24,
+    COALESCE(a.plus_25_month_11_approved, 0)::NUMERIC AS pg_approved_25,
+    COALESCE(b.plus_25_month_11_approved, 0)::NUMERIC AS ora_approved_25,
+    COALESCE(a.plus_26_month_11_approved, 0)::NUMERIC AS pg_approved_26,
+    COALESCE(b.plus_26_month_11_approved, 0)::NUMERIC AS ora_approved_26,
+    COALESCE(a.plus_27_month_11_approved, 0)::NUMERIC AS pg_approved_27,
+    COALESCE(b.plus_27_month_11_approved, 0)::NUMERIC AS ora_approved_27,
+    COALESCE(a.plus_28_month_11_approved, 0)::NUMERIC AS pg_approved_28,
+    COALESCE(b.plus_28_month_11_approved, 0)::NUMERIC AS ora_approved_28,
+    COALESCE(a.plus_29_month_11_approved, 0)::NUMERIC AS pg_approved_29,
+    COALESCE(b.plus_29_month_11_approved, 0)::NUMERIC AS ora_approved_29,
+    COALESCE(a.plus_30_month_11_approved, 0)::NUMERIC AS pg_approved_30,
+    COALESCE(b.plus_30_month_11_approved, 0)::NUMERIC AS ora_approved_30,
+    COALESCE(a.plus_31_month_11_approved, 0)::NUMERIC AS pg_approved_31,
+    COALESCE(b.plus_31_month_11_approved, 0)::NUMERIC AS ora_approved_31,
+    COALESCE(a.plus_32_month_11_approved, 0)::NUMERIC AS pg_approved_32,
+    COALESCE(b.plus_32_month_11_approved, 0)::NUMERIC AS ora_approved_32,
+    COALESCE(a.plus_33_month_11_approved, 0)::NUMERIC AS pg_approved_33,
+    COALESCE(b.plus_33_month_11_approved, 0)::NUMERIC AS ora_approved_33,
+    COALESCE(a.plus_34_month_11_approved, 0)::NUMERIC AS pg_approved_34,
+    COALESCE(b.plus_34_month_11_approved, 0)::NUMERIC AS ora_approved_34,
+    COALESCE(a.plus_35_month_11_approved, 0)::NUMERIC AS pg_approved_35,
+    COALESCE(b.plus_35_month_11_approved, 0)::NUMERIC AS ora_approved_35,
+    COALESCE(a.plus_36_month_11_approved, 0)::NUMERIC AS pg_approved_36,
+    COALESCE(b.plus_36_month_11_approved, 0)::NUMERIC AS ora_approved_36,
+    COALESCE(a.plus_37_month_11_approved, 0)::NUMERIC AS pg_approved_37,
+    COALESCE(b.plus_37_month_11_approved, 0)::NUMERIC AS ora_approved_37,
+    COALESCE(a.plus_38_month_11_approved, 0)::NUMERIC AS pg_approved_38,
+    COALESCE(b.plus_38_month_11_approved, 0)::NUMERIC AS ora_approved_38,
+    COALESCE(a.plus_39_month_11_approved, 0)::NUMERIC AS pg_approved_39,
+    COALESCE(b.plus_39_month_11_approved, 0)::NUMERIC AS ora_approved_39,
+    COALESCE(a.plus_40_month_11_approved, 0)::NUMERIC AS pg_approved_40,
+    COALESCE(b.plus_40_month_11_approved, 0)::NUMERIC AS ora_approved_40,
+    COALESCE(a.plus_41_month_11_approved, 0)::NUMERIC AS pg_approved_41,
+    COALESCE(b.plus_41_month_11_approved, 0)::NUMERIC AS ora_approved_41,
+    COALESCE(a.plus_42_month_11_approved, 0)::NUMERIC AS pg_approved_42,
+    COALESCE(b.plus_42_month_11_approved, 0)::NUMERIC AS ora_approved_42,
+    COALESCE(a.plus_43_month_11_approved, 0)::NUMERIC AS pg_approved_43,
+    COALESCE(b.plus_43_month_11_approved, 0)::NUMERIC AS ora_approved_43,
+    COALESCE(a.plus_44_month_11_approved, 0)::NUMERIC AS pg_approved_44,
+    COALESCE(b.plus_44_month_11_approved, 0)::NUMERIC AS ora_approved_44,
+    COALESCE(a.plus_45_month_11_approved, 0)::NUMERIC AS pg_approved_45,
+    COALESCE(b.plus_45_month_11_approved, 0)::NUMERIC AS ora_approved_45,
+    COALESCE(a.plus_46_month_11_approved, 0)::NUMERIC AS pg_approved_46,
+    COALESCE(b.plus_46_month_11_approved, 0)::NUMERIC AS ora_approved_46,
+    COALESCE(a.plus_47_month_11_approved, 0)::NUMERIC AS pg_approved_47,
+    COALESCE(b.plus_47_month_11_approved, 0)::NUMERIC AS ora_approved_47,
+    COALESCE(a.plus_48_month_11_approved, 0)::NUMERIC AS pg_approved_48,
+    COALESCE(b.plus_48_month_11_approved, 0)::NUMERIC AS ora_approved_48,
+    COALESCE(a.plus_49_month_11_approved, 0)::NUMERIC AS pg_approved_49,
+    COALESCE(b.plus_49_month_11_approved, 0)::NUMERIC AS ora_approved_49,
+    COALESCE(a.plus_50_month_11_approved, 0)::NUMERIC AS pg_approved_50,
+    COALESCE(b.plus_50_month_11_approved, 0)::NUMERIC AS ora_approved_50,
+    COALESCE(a.plus_51_month_11_approved, 0)::NUMERIC AS pg_approved_51,
+    COALESCE(b.plus_51_month_11_approved, 0)::NUMERIC AS ora_approved_51,
+    COALESCE(a.plus_52_month_11_approved, 0)::NUMERIC AS pg_approved_52,
+    COALESCE(b.plus_52_month_11_approved, 0)::NUMERIC AS ora_approved_52,
+    COALESCE(a.plus_53_month_11_approved, 0)::NUMERIC AS pg_approved_53,
+    COALESCE(b.plus_53_month_11_approved, 0)::NUMERIC AS ora_approved_53,
+    COALESCE(a.plus_54_month_11_approved, 0)::NUMERIC AS pg_approved_54,
+    COALESCE(b.plus_54_month_11_approved, 0)::NUMERIC AS ora_approved_54,
+    COALESCE(a.plus_55_month_11_approved, 0)::NUMERIC AS pg_approved_55,
+    COALESCE(b.plus_55_month_11_approved, 0)::NUMERIC AS ora_approved_55,
+    COALESCE(a.plus_56_month_11_approved, 0)::NUMERIC AS pg_approved_56,
+    COALESCE(b.plus_56_month_11_approved, 0)::NUMERIC AS ora_approved_56,
+    COALESCE(a.plus_57_month_11_approved, 0)::NUMERIC AS pg_approved_57,
+    COALESCE(b.plus_57_month_11_approved, 0)::NUMERIC AS ora_approved_57,
+    COALESCE(a.plus_58_month_11_approved, 0)::NUMERIC AS pg_approved_58,
+    COALESCE(b.plus_58_month_11_approved, 0)::NUMERIC AS ora_approved_58,
+    COALESCE(a.plus_59_month_11_approved, 0)::NUMERIC AS pg_approved_59,
+    COALESCE(b.plus_59_month_11_approved, 0)::NUMERIC AS ora_approved_59,
+    COALESCE(a.plus_60_month_11_approved, 0)::NUMERIC AS pg_approved_60,
+    COALESCE(b.plus_60_month_11_approved, 0)::NUMERIC AS ora_approved_60
+
+FROM actuary.rep_guru_osago_triangle a
+FULL OUTER JOIN actuary.rep_guru_osago_triangle_repsrv b
+    ON a.claimnumber = b.claimnumber
+WHERE
+    -- Условия на текстовые поля (с приведением к TEXT)
+    a.planning_region_name::TEXT IS DISTINCT FROM b.regionname_final::TEXT
+    OR a.contract_option::TEXT IS DISTINCT FROM b.arm_ekis_contractoption::TEXT
+    OR a.is_partner::TEXT IS DISTINCT FROM b.arm_ekis_is_partner::TEXT
+    OR a.sale_channel_groupmk_name::TEXT IS DISTINCT FROM b.salechannelfullname_de::TEXT
+    OR a.category_id::TEXT IS DISTINCT FROM b.category_id_final::TEXT
+    OR a.category_id_2020::TEXT IS DISTINCT FROM b.category_id_2020_final::TEXT
+    OR a.is_capital_insurance::TEXT IS DISTINCT FROM b.is_capital_insurance::TEXT
+    OR a.claim_level_risk::TEXT IS DISTINCT FROM b.claim_level_risk::TEXT
+    OR a.claim_ins_type::TEXT IS DISTINCT FROM b.claim_ins_type::TEXT
+    OR a.is_pvu::TEXT IS DISTINCT FROM b.is_pvu::TEXT
+    OR a.is_policy_from_ea::TEXT IS DISTINCT FROM b.is_policy_from_ea::TEXT
+    OR a.is_policy_from_e_garant::TEXT IS DISTINCT FROM b.is_policy_from_e_garant::TEXT
+    OR a.is_need_reinsurance::TEXT IS DISTINCT FROM b.is_need_reinsurance::TEXT
+    OR a.accepted_for_reinsurance_main::TEXT IS DISTINCT FROM b.accepted_for_reinsurance_main::TEXT
+    OR a.osago_chain_number::TEXT IS DISTINCT FROM b.osago_chain_number::TEXT
+    OR a.d1_month::TEXT IS DISTINCT FROM b.d1_month::TEXT
+    OR a.accident_month::TEXT IS DISTINCT FROM b.accident_month::TEXT
+
+    -- Условия на числовые поля (резервы) с приведением к NUMERIC
+    OR COALESCE(a.plus_1_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_1_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_2_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_2_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_3_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_3_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_4_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_4_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_5_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_5_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_6_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_6_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_7_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_7_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_8_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_8_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_9_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_9_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_10_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_10_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_11_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_11_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_12_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_12_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_13_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_13_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_14_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_14_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_15_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_15_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_16_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_16_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_17_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_17_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_18_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_18_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_19_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_19_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_20_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_20_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_21_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_21_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_22_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_22_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_23_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_23_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_24_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_24_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_25_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_25_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_26_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_26_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_27_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_27_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_28_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_28_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_29_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_29_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_30_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_30_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_31_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_31_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_32_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_32_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_33_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_33_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_34_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_34_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_35_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_35_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_36_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_36_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_37_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_37_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_38_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_38_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_39_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_39_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_40_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_40_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_41_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_41_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_42_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_42_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_43_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_43_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_44_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_44_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_45_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_45_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_46_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_46_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_47_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_47_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_48_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_48_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_49_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_49_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_50_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_50_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_51_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_51_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_52_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_52_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_53_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_53_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_54_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_54_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_55_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_55_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_56_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_56_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_57_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_57_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_58_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_58_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_59_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_59_month_11_reserve, 0)::NUMERIC
+    OR COALESCE(a.plus_60_month_11_reserve, 0)::NUMERIC != COALESCE(b.plus_60_month_11_reserve, 0)::NUMERIC
+
+    -- Условия на числовые поля (выплаты) с приведением к NUMERIC
+    OR COALESCE(a.plus_1_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_1_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_2_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_2_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_3_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_3_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_4_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_4_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_5_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_5_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_6_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_6_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_7_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_7_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_8_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_8_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_9_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_9_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_10_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_10_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_11_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_11_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_12_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_12_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_13_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_13_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_14_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_14_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_15_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_15_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_16_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_16_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_17_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_17_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_18_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_18_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_19_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_19_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_20_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_20_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_21_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_21_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_22_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_22_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_23_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_23_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_24_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_24_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_25_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_25_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_26_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_26_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_27_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_27_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_28_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_28_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_29_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_29_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_30_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_30_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_31_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_31_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_32_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_32_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_33_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_33_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_34_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_34_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_35_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_35_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_36_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_36_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_37_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_37_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_38_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_38_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_39_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_39_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_40_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_40_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_41_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_41_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_42_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_42_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_43_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_43_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_44_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_44_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_45_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_45_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_46_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_46_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_47_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_47_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_48_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_48_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_49_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_49_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_50_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_50_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_51_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_51_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_52_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_52_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_53_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_53_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_54_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_54_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_55_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_55_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_56_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_56_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_57_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_57_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_58_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_58_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_59_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_59_month_11_approved, 0)::NUMERIC
+    OR COALESCE(a.plus_60_month_11_approved, 0)::NUMERIC != COALESCE(b.plus_60_month_11_approved, 0)::NUMERIC
+
+ORDER BY claimnumber;
