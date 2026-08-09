@@ -1,4 +1,5 @@
-COMMENT ON TABLE actuary.rep_guru_osago_triangle_delta IS 
-'Результат построчного сравнения таблиц rep_guru_osago_triangle (Postgres) и rep_guru_osago_triangle_repsrv (Oracle).
-Содержит только строки с расхождениями. Все поля дублируются с префиксами pg_ (Postgres) и ora_ (Oracle).
-Ключевое поле: claimnumber. Предназначена для анализа и выявления проблемных полей.';
+COMMENT ON TABLE actuary.rep_guru_osago_triangle_delta_stats IS 
+'Статистика расхождений по полям между rep_guru_osago_triangle (Postgres) и rep_guru_osago_triangle_repsrv (Oracle).
+Поле field_name – идентификатор сравниваемого параметра (например, reserve_1, region и т.д.).
+Поле diff_count – количество записей, в которых значение данного поля отличается между версиями.
+Данные обновляются периодически для мониторинга корректности расчётов.';
