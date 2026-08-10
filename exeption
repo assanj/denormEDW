@@ -1,1 +1,14 @@
-SELECT banner FROM v$version WHERE banner LIKE 'Oracle%';
+WITH sample_data AS (
+    -- Генерируем тестовые строки через UNION ALL и DUAL
+    SELECT 'Фрукты' AS category, 'Яблоко'  AS item FROM DUAL UNION ALL
+    SELECT 'Фрукты' AS category, 'Банан'   AS item FROM DUAL UNION ALL
+    SELECT 'Фрукты' AS category, 'Апельсин' AS item FROM DUAL UNION ALL
+    SELECT 'Овощи'  AS category, 'Морковь' AS item FROM DUAL UNION ALL
+    SELECT 'Овощи'  AS category, 'Картофель' AS item FROM DUAL
+)
+SELECT 
+    category,
+    LISTAGG(item, ', ') WITHIN GROUP (ORDER BY item) AS item_list
+FROM sample_data
+GROUP BY category
+ORDER BY category;
