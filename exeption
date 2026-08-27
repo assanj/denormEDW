@@ -1,19 +1,9 @@
--- Предполагаемые имена и структура:
--- 1. Исходная таблица: XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv
---    Поля: DB, NEW_REGIONNAME, PROPERTYFORMNAME, SALECHANNELFULLNAME_DE,
---          IS_DEAD_POLICY, YEAR_MONTH, YEAR_QUARTER, D1_QUARTER,
---          IS_POLICY_FROM_E_GARANT, IS_POLICY_FROM_EA, IS_NEED_REINSURANCE,
---          NEW_REGIONNAME_EXT, D1_MONTH, CONTRACTOPTION, OSAGO_CHAIN_NUMBER,
---          KC, EXPOSURE, EP, WRITTENPREMIUM, POLICYCOUNT, RETURNPREMIUM.
--- 2. Справочник регионов: regions_ref
---    Поля: region_name (соответствует NEW_REGIONNAME),
---          federal_district, flag_rca_agent (будет переименован в "Флаг Токс_регион"),
---          region_large.
--- 3. Параметр :month – число в формате YYYYMM (например, 202607).
---    В Qlik-скрипте он используется как $(month).
+-- Универсальный запрос для PostgreSQL
+-- Одно преобразование таблицы XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv
 
-WITH source AS (
-    SELECT
+WITH base_data AS (
+    SELECT 
+        DB,
         NEW_REGIONNAME,
         PROPERTYFORMNAME,
         SALECHANNELFULLNAME_DE,
@@ -22,92 +12,143 @@ WITH source AS (
         YEAR_QUARTER,
         D1_QUARTER,
         IS_POLICY_FROM_E_GARANT,
+        IS_POLICY_FROM_EA,
         IS_NEED_REINSURANCE,
+        NEW_REGIONNAME_EXT,
         D1_MONTH,
         CONTRACTOPTION,
         OSAGO_CHAIN_NUMBER,
+        KC,
         EXPOSURE,
         EP,
         WRITTENPREMIUM,
         POLICYCOUNT,
-        -- Вычисляемые поля с латинскими именами (содержат русские значения)
-        CASE WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый' ELSE 'Первоначальный' END AS contract_type,
-        CASE
-            WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN
-                CASE WHEN OSAGO_CHAIN_NUMBER > 1 THEN 'Возобновлённый' ELSE 'Первоначальный' END
-            ELSE
-                CASE WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый' ELSE 'Первоначальный' END
-        END AS renewal_type
-    FROM XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv
+        RETURNPREMIUM,
+        -- Вычисляемые поля
+        CASE WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый' ELSE 'Первоначальный' END as contract_type,
+        CASE 
+            WHEN PROPERTYFORMNAME = 'Физическое лицо' AND OSAGO_CHAIN_NUMBER > 1 THEN 'Возобновлённый'
+            WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'Первоначальный'
+            WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый'
+            ELSE 'Первоначальный'
+        END as prolongation_type,
+        CASE 
+            WHEN SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг') 
+                 OR IS_POLICY_FROM_E_GARANT = '1' THEN 1 
+            ELSE 0 
+        END as flag_e_osago,
+        CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'ФЛ' ELSE 'ЮЛ' END as insured_type_short
+    FROM actuary.XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv
 ),
-
-joined AS (
-    SELECT
-        s.*,
-        r.federal_district,
-        r.flag_rca_agent AS flag_tox_region,
-        r.region_large
-    FROM source s
-    LEFT JOIN regions_ref r ON s.NEW_REGIONNAME = r.region_name
-),
-
-aggregated AS (
-    SELECT
+aggregated_data AS (
+    SELECT 
+        -- Группировочные поля
+        KC,
+        DB,
+        NEW_REGIONNAME,
+        NEW_REGIONNAME_EXT,
+        PROPERTYFORMNAME,
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
+        IS_NEED_REINSURANCE,
+        IS_DEAD_POLICY,
+        SALECHANNELFULLNAME_DE,
+        contract_type,
+        prolongation_type,
         D1_QUARTER,
         D1_MONTH,
         YEAR_QUARTER,
         YEAR_MONTH,
-        -- Флаг Е-ОСАГО
-        CASE
-            WHEN SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг')
-                 OR IS_POLICY_FROM_E_GARANT = '1' THEN 1
-            ELSE 0
-        END AS e_osago_flag,
+        -- Агрегированные поля
+        SUM(EXPOSURE) as exposure_sum,
+        SUM(EP) as ep_sum,
+        SUM(POLICYCOUNT) as policycount_sum,
+        SUM(WRITTENPREMIUM) as writtenpremium_sum,
+        SUM(RETURNPREMIUM) as returnpremium_sum,
+        -- Флаги для фильтрации
+        flag_e_osago,
+        insured_type_short
+    FROM base_data
+    GROUP BY 
+        KC,
+        DB,
+        NEW_REGIONNAME,
+        NEW_REGIONNAME_EXT,
+        PROPERTYFORMNAME,
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
         IS_NEED_REINSURANCE,
-        flag_tox_region,
-        region_large,
-        renewal_type,
-        -- Тип страхователя (сокращённо)
-        CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'ФЛ' ELSE 'ЮЛ' END AS customer_type,
-        -- Агрегаты
-        SUM(EP) AS earned_premium,
-        SUM(CASE WHEN YEAR_MONTH <= :month THEN EXPOSURE ELSE 0 END) AS exposure,
-        SUM(WRITTENPREMIUM) AS written_premium,
-        SUM(POLICYCOUNT) AS policy_count
-    FROM joined
-    WHERE (IS_DEAD_POLICY IS NULL OR IS_DEAD_POLICY = 0 OR IS_DEAD_POLICY = -1)
-    GROUP BY
+        IS_DEAD_POLICY,
+        SALECHANNELFULLNAME_DE,
+        contract_type,
+        prolongation_type,
         D1_QUARTER,
         D1_MONTH,
         YEAR_QUARTER,
         YEAR_MONTH,
-        CASE
-            WHEN SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг')
-                 OR IS_POLICY_FROM_E_GARANT = '1' THEN 1
-            ELSE 0
-        END,
-        IS_NEED_REINSURANCE,
-        flag_tox_region,
-        region_large,
-        renewal_type,
-        CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'ФЛ' ELSE 'ЮЛ' END
+        flag_e_osago,
+        insured_type_short
+),
+final_data AS (
+    SELECT 
+        ad.DB as "База данных",
+        ad.NEW_REGIONNAME as "Регион",
+        ad.NEW_REGIONNAME_EXT as "Регион ОФР",
+        ad.PROPERTYFORMNAME as "Тип страхователя",
+        ad.IS_POLICY_FROM_EA,
+        ad.IS_POLICY_FROM_E_GARANT,
+        ad.IS_NEED_REINSURANCE,
+        ad.IS_DEAD_POLICY,
+        ad.SALECHANNELFULLNAME_DE as "Канал продаж",
+        ad.contract_type as "Признак договора",
+        ad.prolongation_type as "Признак пролонгации",
+        ad.D1_QUARTER as "Квартал начала",
+        ad.D1_MONTH as "Месяц начала",
+        ad.YEAR_QUARTER as "Квартал",
+        ad.YEAR_MONTH as "Месяц",
+        -- Экспозиция с фильтром по месяцу (параметр month нужно передавать)
+        CASE WHEN ad.YEAR_MONTH <= '2026-07' THEN ad.exposure_sum ELSE 0 END as "Экспозиция",  -- замените '2026-07' на нужный параметр
+        ad.ep_sum as "Заработанная премия",
+        ad.policycount_sum as "Количество договоров",
+        ad.exposure_sum as "Количество полисолет",  -- как в оригинале
+        ad.writtenpremium_sum as "Начисленная премия",
+        ad.returnpremium_sum as "Возвраты",
+        -- Добавляем поля для присоединения региона
+        ad.NEW_REGIONNAME,
+        -- Флаги для финального отбора
+        ad.flag_e_osago,
+        ad.insured_type_short,
+        ad.IS_NEED_REINSURANCE as "Передан в пул?"
+    FROM aggregated_data ad
+    WHERE (ad.IS_DEAD_POLICY IS NULL OR ad.IS_DEAD_POLICY = 0 OR ad.IS_DEAD_POLICY = -1)
 )
-
--- Финальный SELECT: все переименования в русские названия вынесены сюда
-SELECT
-    D1_QUARTER       AS "Квартал начала",
-    D1_MONTH         AS "Месяц начала",
-    YEAR_QUARTER     AS "Квартал",
-    YEAR_MONTH       AS "Месяц",
-    e_osago_flag     AS "Флаг Е-ОСАГО",
-    IS_NEED_REINSURANCE AS "Передан в пул?",
-    flag_tox_region  AS "Флаг Токс_регион",
-    region_large     AS "Регион крупный",
-    renewal_type     AS "Признак пролонгации",
-    customer_type    AS "Тип страхователя",
-    earned_premium   AS "ЗП",
-    exposure         AS "Экспозиция",
-    written_premium  AS "НП",
-    policy_count     AS "Кол-во договоров"
-FROM aggregated
-ORDER BY "Квартал начала", "Месяц начала";   -- порядок вывода не регламентирован, но для наглядности
+SELECT 
+    fd."База данных",
+    fd."Регион",
+    fd."Регион ОФР",
+    fd."Тип страхователя",
+    fd.IS_POLICY_FROM_EA,
+    fd.IS_POLICY_FROM_E_GARANT,
+    fd."Передан в пул?",
+    fd.IS_DEAD_POLICY,
+    fd."Канал продаж",
+    fd."Признак договора",
+    fd."Признак пролонгации",
+    fd."Квартал начала",
+    fd."Месяц начала",
+    fd."Квартал",
+    fd."Месяц",
+    fd."Экспозиция",
+    fd."Заработанная премия",
+    fd."Количество договоров",
+    fd."Количество полисолет",
+    fd."Начисленная премия",
+    fd."Возвраты",
+    -- Присоединяем данные из справочника регионов
+    r."Федеральный округ" as "Федеральный округ",
+    r."Флаг РСА-Агент" as "Флаг Токс_регион",
+    r."Регион крупный" as "Регион крупный",
+    fd.flag_e_osago as "Флаг Е-ОСАГО",
+    fd.insured_type_short as "Тип страхователя_кр"  -- сокращенный тип
+FROM final_data fd
+LEFT JOIN actuary.ref_xls4qlik_regions r ON fd.NEW_REGIONNAME = r."Регион";
