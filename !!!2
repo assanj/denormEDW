@@ -1,5 +1,7 @@
-SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_schema = 'core'
-  AND table_name = 'object_risk_type'
-  AND column_name IN ('object_class', 'program_type');
+CREATE TABLE actuary.ref_xls4qlik_regions (
+	"Регион" text NULL,
+	"Федеральный округ" text NULL,
+	"Флаг РСА-Агент" float8 NULL,
+	"Регион крупный" text NULL,
+	"Регион для отчета" text NULL
+);
