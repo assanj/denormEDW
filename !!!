@@ -30,6 +30,10 @@ select * from actuary.rep_guru_osago_triangle_delta_stats  ORDER BY diff_count D
 select * from actuary.rep_guru_osago_triangle_delta
     WHERE pg_accepted_for_reinsurance_main IS DISTINCT FROM ora_accepted_for_reinsurance_main
 
+
+
+
+
 */
 
 declare
@@ -43,7 +47,7 @@ begin
 -- Логирование общего старта процедуры
 PERFORM actuary.logz(v_pack_name, p_procedure_name, 'started', 'step00', 0);
 
---ОСАГО ЗП и экспозиция 20гг-мм.csv
+--1. ОСАГО ЗП и экспозиция 20гг-мм.csv
 DROP TABLE IF EXISTS actuary.rep_osago_ep_expo;
 		CREATE TABLE actuary.rep_osago_ep_expo AS
 
@@ -192,7 +196,7 @@ aggregated_data AS (
     WHERE (ad.IS_DEAD_POLICY IS NULL OR ad.IS_DEAD_POLICY = 0 OR ad.IS_DEAD_POLICY = -1)
 ;
 
---ОСАГО понесенные убытки 20гг-мм.csv
+--2. ОСАГО понесенные убытки 20гг-мм.csv
 DROP TABLE IF EXISTS actuary.rep_osago_triangle;
 		CREATE TABLE actuary.rep_osago_triangle AS
 
@@ -433,9 +437,68 @@ DROP TABLE IF EXISTS actuary.rep_osago_triangle;
     -- Итоговое логирование успешного завершения всей процедуры
 PERFORM actuary.logz(v_pack_name, p_procedure_name, 'finished', 'step100', 0);
 
+/*для справки имеем справочниики из экселя:
+CREATE TABLE actuary.ref_xls4triangle_osago_type_claim (
+	"Тип убытка" text NULL,
+	"Тип убытка крупный" text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_regions (
+	"Регион" text NULL,
+	"Федеральный округ" text NULL,
+	"Флаг РСА-Агент" float8 NULL,
+	"Регион крупный" text NULL,
+	"Регион для отчета" text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_type_insurer (
+	category_id_final text NULL,
+	"Тип страхователя" text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_coef_ts (
+	"Тип страхователя" text NULL,
+	"Признак пролонгации" text NULL,
+	"Месяц_" float8 NULL,
+	k_risk_all text NULL,
+	k_season_all text NULL,
+	k_risk_ppvu text NULL,
+	k_season_ppvu text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_coefficients (
+	"Сегмент" text NULL,
+	"Месяц" text NULL,
+	"Сдвиг" text NULL,
+	"Коэф_развития_1" text NULL,
+	"Коэф_развития_2" text NULL,
+	"Тип убытка крупный" text NULL,
+	"Тип страхователя" text NULL,
+	"Признак пролонгации" text NULL,
+	"Месяц_" text NULL,
+	k_risk text NULL,
+	k_season text NULL,
+	"КАСКО_Сегмент" text NULL,
+	"КАСКО_Месяц" text NULL,
+	"КАСКО_Сдвиг" text NULL,
+	"КАСКО_Коэф_развития_1" text NULL,
+	"КАСКО_Коэф_развития_2" text NULL,
+	"Сегмент_1" text NULL,
+	"Месяц_КАСКО" text NULL,
+	k_risk_1 text NULL,
+	k_season_1 text NULL
+);
+
+
+CREATE TABLE actuary.ref_xls4triangles_segments (
+	"Тип страхователя" text NULL,
+	"Тип убытка крупный" text NULL,
+	"Сегмент" text NULL
+);
+
+*/
 END $procedure$
 ;
-
 -- Permissions
 
 ALTER PROCEDURE actuary.rep_osago_ep_expo_triangle(int4, date) OWNER TO mskazakov;
