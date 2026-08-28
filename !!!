@@ -1,1 +1,202 @@
-p_report_date date DEFAULT ((date_trunc('month'::text, (CURRENT_DATE)::timestamp with time zone) - '1 day'::interval))::date)
+-- DROP PROCEDURE actuary.rep_osago_ep_expo_triangle(int4, date);
+
+CREATE OR REPLACE PROCEDURE actuary.rep_osago_ep_expo_triangle(p_check integer, p_report_date date DEFAULT ((date_trunc('month'::text, (CURRENT_DATE)::timestamp with time zone) - '1 day'::interval))::date)
+ LANGUAGE plpgsql
+AS $procedure$
+--- Kazakov 25.08.2026
+
+/*
+предварительно:
+repsrv2edw_XLS_EXPOSISION_PREMIUM_OSAGO_O
+xls2edw_ref_xls4triangles
+
+
+do $$
+begin
+	call actuary.rep_osago_ep_expo_triangle(1);
+end $$
+
+select count(1) from actuary.rep_guru_osago_triangle_repsrv delta
+
+--4932675 -rep
+--4840192 -edw
+--1905092
+
+
+select * from actuary.rep_guru_osago_triangle_delta_stats  ORDER BY diff_count DESC;
+
+
+select * from actuary.rep_guru_osago_triangle_delta
+    WHERE pg_accepted_for_reinsurance_main IS DISTINCT FROM ora_accepted_for_reinsurance_main
+
+*/
+
+declare
+    v_pack_name          varchar := 'rep_osago_ep_expo_triangle';
+    p_procedure_name     varchar := 'rep_osago_ep_expo_triangle';
+    v_row_count          integer := 0;
+    v_sql                text;
+
+    p_check              integer := 1;
+begin
+-- Логирование общего старта процедуры
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'started', 'step00', 0);
+
+DROP TABLE IF EXISTS actuary.rep_osago_ep_expo;
+		CREATE TABLE actuary.rep_osago_ep_expo AS
+
+WITH base_data AS (
+    select
+        report_date as report_date,
+        
+        DB,
+        NEW_REGIONNAME,
+        PROPERTYFORMNAME,
+        SALECHANNELFULLNAME_DE,
+        IS_DEAD_POLICY,
+        YEAR_MONTH,
+        YEAR_QUARTER,
+        D1_QUARTER,
+        IS_POLICY_FROM_E_GARANT,
+        IS_POLICY_FROM_EA,
+        IS_NEED_REINSURANCE,
+        NEW_REGIONNAME_EXT,
+        D1_MONTH,
+        CONTRACTOPTION,
+        OSAGO_CHAIN_NUMBER,
+        KC,
+        EXPOSURE,
+        EP,
+        WRITTENPREMIUM,
+        POLICYCOUNT,
+        RETURNPREMIUM,
+        -- Вычисляемые поля
+        CASE WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый' ELSE 'Первоначальный' END as contract_type,
+        CASE 
+            WHEN PROPERTYFORMNAME = 'Физическое лицо' AND OSAGO_CHAIN_NUMBER > 1 THEN 'Возобновлённый'
+            WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'Первоначальный'
+            WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый'
+            ELSE 'Первоначальный'
+        END as prolongation_type,
+        CASE 
+            WHEN SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг') 
+                 OR IS_POLICY_FROM_E_GARANT = '1' THEN 1 
+            ELSE 0 
+        END as flag_e_osago,
+        CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'ФЛ' ELSE 'ЮЛ' END as insured_type_short
+    FROM actuary.XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv
+),
+aggregated_data AS (
+    SELECT 
+        -- Группировочные поля
+        report_date,
+        KC,
+        DB,
+        NEW_REGIONNAME,
+        NEW_REGIONNAME_EXT,
+        PROPERTYFORMNAME,
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
+        IS_NEED_REINSURANCE,
+        IS_DEAD_POLICY,
+        SALECHANNELFULLNAME_DE,
+        contract_type,
+        prolongation_type,
+        D1_QUARTER,
+        D1_MONTH,
+        YEAR_QUARTER,
+        YEAR_MONTH,
+        -- Флаги для фильтрации
+        flag_e_osago,
+        insured_type_short,
+
+        -- Агрегированные поля:
+        SUM(EXPOSURE) as POLICYCOUNT,        
+		CASE 
+		    WHEN YEAR_MONTH <= TO_CHAR(report_date, 'YYYYMM')  -- если p_report_date 
+		    THEN sum(EXPOSURE)
+		    ELSE 0 
+		END as exposure_sum,
+
+        SUM(EP) as ep_sum,
+        SUM(POLICYCOUNT) as policycount_sum,
+        SUM(WRITTENPREMIUM) as writtenpremium_sum,
+        SUM(RETURNPREMIUM) as returnpremium_sum
+    FROM base_data
+    GROUP BY 
+        report_date,
+        KC,
+        DB,
+        NEW_REGIONNAME,
+        NEW_REGIONNAME_EXT,
+        PROPERTYFORMNAME,
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
+        IS_NEED_REINSURANCE,
+        IS_DEAD_POLICY,
+        SALECHANNELFULLNAME_DE,
+        contract_type,
+        prolongation_type,
+        D1_QUARTER,
+        D1_MONTH,
+        YEAR_QUARTER,
+        YEAR_MONTH,
+        flag_e_osago,
+        insured_type_short
+)
+    SELECT 
+        current_timestamp,
+        session_user,
+        report_date as report_date,
+
+        ad.DB as "База данных",
+        ad.NEW_REGIONNAME as "Регион",
+        ad.NEW_REGIONNAME_EXT as "Регион ОФР",
+        ad.PROPERTYFORMNAME as "Тип страхователя",
+        ad.IS_POLICY_FROM_EA,
+        ad.IS_POLICY_FROM_E_GARANT,
+        ad.IS_NEED_REINSURANCE,
+        ad.IS_DEAD_POLICY,
+        ad.SALECHANNELFULLNAME_DE as "Канал продаж",
+        ad.contract_type as "Признак договора",
+        ad.prolongation_type as "Признак пролонгации",
+        ad.D1_QUARTER as "Квартал начала",
+        ad.D1_MONTH as "Месяц начала",
+        ad.YEAR_QUARTER as "Квартал",
+        ad.YEAR_MONTH as "Месяц", 
+
+        -- Флаги для финального отбора
+	    ad.flag_e_osago as "Флаг Е-ОСАГО",
+	    ad.insured_type_short as "Тип страхователя_кр", -- сокращенный тип
+        ad.IS_NEED_REINSURANCE as "Передан в пул?",
+
+        -- Добавляем поля для присоединения региона
+        ad.NEW_REGIONNAME,
+        
+        -- Присоединяем данные из справочника регионов
+	    r."Федеральный округ" as "Федеральный округ",
+	    r."Флаг РСА-Агент" as "Флаг Токс_регион",
+	    r."Регион крупный" as "Регион крупный",
+       
+        ad.exposure_sum as "Экспозиция",  -- замените '2026-07' на нужный параметр
+        ad.ep_sum as "Заработанная премия",
+        ad.policycount_sum as "Количество договоров",
+        ad.POLICYCOUNT as "Количество полисолет",  -- как в оригинале
+        ad.writtenpremium_sum as "Начисленная премия",
+        ad.returnpremium_sum as "Возвраты"
+    FROM aggregated_data ad
+    LEFT JOIN actuary.ref_xls4triangles_regions r ON ad.NEW_REGIONNAME = r."Регион"
+    WHERE (ad.IS_DEAD_POLICY IS NULL OR ad.IS_DEAD_POLICY = 0 OR ad.IS_DEAD_POLICY = -1)
+;
+
+
+    -- Итоговое логирование успешного завершения всей процедуры
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'finished', 'step100', 0);
+
+END $procedure$
+;
+
+-- Permissions
+
+ALTER PROCEDURE actuary.rep_osago_ep_expo_triangle(int4, date) OWNER TO mskazakov;
+GRANT ALL ON PROCEDURE actuary.rep_osago_ep_expo_triangle(int4, date) TO mskazakov;
