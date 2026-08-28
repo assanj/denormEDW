@@ -1,57 +1,17 @@
-DO $$
-DECLARE
-    rec RECORD;
-    search_value TEXT := 'ваш_текст_для_поиска';
-    schema_name TEXT := 'core';
-    query_text TEXT;
-    sample_data RECORD;
-    found_count INTEGER;
-    result_count INTEGER := 0;
-BEGIN
-    -- Перебираем все текстовые поля в схеме
-    FOR rec IN 
-        SELECT 
-            table_name,
-            column_name,
-            data_type
-        FROM information_schema.columns
-        WHERE table_schema = schema_name
-          AND data_type IN ('character varying', 'varchar', 'text', 'char', 'character')
-          AND character_maximum_length > 25  -- только поля длиннее 25 символов
-        ORDER BY table_name, column_name
-    LOOP
-        -- Формируем запрос для поиска
-        query_text := format('
-            SELECT COUNT(*) 
-            FROM %I.%I 
-            WHERE %I::TEXT LIKE ''%%%s%%''
-        ', schema_name, rec.table_name, rec.column_name, search_value);
-        
-        EXECUTE query_text INTO found_count;
-        
-        IF found_count > 0 THEN
-            RAISE NOTICE '-----------';
-            RAISE NOTICE 'Таблица: %.%, Колонка: %', 
-                schema_name, rec.table_name, rec.column_name;
-            RAISE NOTICE 'Найдено записей: %', found_count;
-            
-            -- Выводим первые 3 примера найденных значений
-            query_text := format('
-                SELECT %I 
-                FROM %I.%I 
-                WHERE %I::TEXT LIKE ''%%%s%%''
-                LIMIT 3
-            ', rec.column_name, schema_name, rec.table_name, rec.column_name, search_value);
-            
-            FOR sample_data IN EXECUTE query_text LOOP
-                RAISE NOTICE 'Пример: %', sample_data.text;
-            END LOOP;
-            
-            result_count := result_count + 1;
-        END IF;
-        
-    END LOOP;
-    
-    RAISE NOTICE '=========================================';
-    RAISE NOTICE 'Всего найдено таблиц/колонок с совпадениями: %', result_count;
-END $$;
+CREATE TABLE actuary.ref_xls4triangle_osago_type_claim (
+	"Тип убытка" text NULL,
+	"Тип убытка крупный" text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_regions (
+	"Регион" text NULL,
+	"Федеральный округ" text NULL,
+	"Флаг РСА-Агент" float8 NULL,
+	"Регион крупный" text NULL,
+	"Регион для отчета" text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_type_insurer (
+	category_id_final text NULL,
+	"Тип страхователя" text NULL
+);
