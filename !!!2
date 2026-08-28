@@ -1,145 +1,53 @@
-let report_date='31.07.2026';
-
-if IsPartialReload()=0 then
-Данные:
-LOAD
-	[Месяц начала],
-    Месяц as Год_месяц,
-    [Канал продаж],
-    [Флаг Е-ОСАГО],
-    IS_POLICY_FROM_EA,
+DROP TABLE IF EXISTS actuary.rep_osago_ep_expo_tmp;
+CREATE TABLE actuary.rep_osago_ep_expo_tmp AS
+SELECT
+    -- Служебные поля
+    report_date,
+    CURRENT_TIMESTAMP as sysmoment,
+    current_user as osuser,
+    
+    DB as "База данных",
+    NEW_REGIONNAME as "Регион",
+    PROPERTYFORMNAME as "Тип страхователя",
+    SALECHANNELFULLNAME_DE as "Канал продаж",
+    IS_DEAD_POLICY,
+    YEAR_MONTH as "Месяц",
+    YEAR_QUARTER as "Квартал",
+    D1_QUARTER as "Квартал начала",
     IS_POLICY_FROM_E_GARANT,
-    [Передан в пул?],
-    if(IS_POLICY_FROM_EA='1' or IS_POLICY_FROM_E_GARANT='1','1','0') as [Барабаны РСА],
-    [Флаг Токс_регион] as [Флаг Токс_регион],
-    Регион,
-    [Регион ОФР],
-    [Регион крупный],
-    [Признак договора],
-    [Признак пролонгации],
-    [Тип страхователя],
-    ЗП as [Заработанная премия],
-    Экспозиция,
-    НП as [Начисленная премия],
-    [Кол-во договоров] as [Количество договоров],
-    [Кол-во полисолет] as [Количество полисолет]
-FROM [lib://qfs_Actuary/Выгрузки QS/ОСАГО ЗП и экспозиция 2026-07.csv] (txt, utf8, embedded labels, delimiter is ';', msq)
-where (left(Месяц,4)*1>=2019)
-// and Месяц <= 202307 /// обновить месяц!!!!
-;
-
-Concatenate (Данные)
-LOAD    
-    [Месяц начала],
-    [Месяц события] as Год_месяц,
-    [Месяц развития] as Сдвиг,
-    [Канал продаж],
-   	[Флаг Е-ОСАГО],
     IS_POLICY_FROM_EA,
-    IS_POLICY_FROM_E_GARANT,
-    IS_NEED_REINSURANCE as [Передан в пул?],
-    if(IS_POLICY_FROM_EA='1' or IS_POLICY_FROM_E_GARANT='1','1','0') as [Барабаны РСА],
-    [Флаг Токс_регион],
-    Регион,
-    [Регион ОФР],
-    [Регион крупный],
-    [Тип убытка крупный],
-    [Признак договора],
-    [Признак пролонгации],
-    [Тип страхователя],
-    Количество_убытков as [Количество убытков],
-    Сумма_убытков as [Сумма несудебных убытков]
-FROM [lib://qfs_Actuary/Выгрузки QS/ОСАГО понесенные убытки 2026-07.csv] (txt, utf8, embedded labels, delimiter is ';', msq)
-where (left([Месяц события],4)*1>=2019);
-
-left join (Данные)
-LOAD
-    [Тип страхователя],
-    [Тип убытка крупный],
-    Сегмент
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Сегменты);
-
-left join (Данные)
-LOAD
-    Сегмент,
-    Месяц as Год_месяц,
-    (Сдвиг+1) as Сдвиг,
-    Коэф_развития_1, /* коэффициент для количества убытков*/
-    Коэф_развития_2  /* коэффициент для суммы убытков*/
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Коэффициенты);
-
-Left Join (Данные)
-LOAD
-    [Месяц события] as Год_месяц,
-    year(Дата) as Год,
-    Month(Дата) as Месяц,
-    date(Дата) as DS,
-    Квартал
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Кварталы);
-
-Left Join (Данные)
-LOAD
-	[Месяц события] as [Месяц начала],
-    [Квартал события] as [Квартал начала],
-    year(Дата) as [Год начала],
-    date(Дата) as DN
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Кварталы);
-
-Left Join (Данные)
-LOAD
-    Месяц_COVID19 as Год_месяц,
-    1/k_covid19_osago as k_covid19_osago
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэффициенты);
-
-NoConcatenate
-Данные2:
-Load 
-	*,
-    month(DS)*1 as [Месяц календарный],
-    rangemax((year(DS)-year(DN))*12+(month(DS)*1-month(DN)*1)+1,1) as [Meсяц действия],
-    rangemax((year(DS)-year(DN))*12+(month(DS)*1-month(DN)*1)+1,1)+[Сдвиг]-1 as Сдвиг_дн
-resident Данные;
-
-drop table Данные;
-rename Table Данные2 to Данные;
-
-end if;
-
-// exit script;
-
-Left Join (Данные)
-add LOAD
-    [Тип убытка крупный],
-    [Тип страхователя],
-    [Признак пролонгации],
-    Месяц_ as [Meсяц действия],
-    K_risk
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэффициенты);
-
-Left Join (Данные)
-add LOAD
-	[Тип убытка крупный],
-    [Тип страхователя],
-    [Признак пролонгации],
-    Месяц_ as [Месяц календарный],
-    K_season
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэффициенты);
-
-
-Left Join (Данные)
-add LOAD
-    [Тип страхователя],
-    [Признак пролонгации],
-    Месяц_ as [Meсяц действия],
-    K_risk_all,
-    K_risk_ppvu
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэф_ты);
-
-Left Join (Данные)
-add LOAD
-    [Тип страхователя],
-    [Признак пролонгации],
-    Месяц_ as [Месяц календарный],
-    K_season_all,
-    K_season_ppvu
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэф_ты);
+    IS_NEED_REINSURANCE as "Передан в пул?",
+    NEW_REGIONNAME_EXT as "Регион ОФР",
+    D1_MONTH as "Месяц начала",
+    CONTRACTOPTION,
+    OSAGO_CHAIN_NUMBER,
+    KC,
+    EXPOSURE,
+    EP,
+    
+    WRITTENPREMIUM as "Начисленная премия",
+    POLICYCOUNT as "Количество договоров",
+    RETURNPREMIUM as "Возвраты",
+    
+    -- Вычисляемые поля
+    CASE WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый' ELSE 'Первоначальный' END as "Признак договора",
+    CASE 
+        WHEN PROPERTYFORMNAME = 'Физическое лицо' AND OSAGO_CHAIN_NUMBER > 1 THEN 'Возобновлённый'
+        WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'Первоначальный'
+        WHEN CONTRACTOPTION = '2' THEN 'Возобновлённый'
+        ELSE 'Первоначальный'
+    END as "Признак пролонгации",
+    CASE 
+        WHEN SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг') 
+             OR IS_POLICY_FROM_E_GARANT = '1' THEN 1 
+        ELSE 0 
+    END as "Флаг Е-ОСАГО",
+    CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'ФЛ' ELSE 'ЮЛ' END as "Тип страхователя_кр",
+    
+    -- Присоединяем данные из справочника регионов
+    r."Федеральный округ" as "Федеральный округ",
+    r."Флаг РСА-Агент" as "Флаг Токс_регион",
+    r."Регион крупный" as "Регион крупный"
+FROM actuary.XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv ad
+LEFT JOIN actuary.ref_xls4triangles_regions r ON ad.NEW_REGIONNAME = r."Регион"
+WHERE 0 = 1;
