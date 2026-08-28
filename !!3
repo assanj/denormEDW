@@ -1,184 +1,189 @@
---1.1. ОСАГО ЗП и экспозиция 20гг-мм.csv
-DROP TABLE IF EXISTS actuary.rep_osago_ep_expo;
-CREATE TABLE actuary.rep_osago_ep_expo AS
+-- ============================================================
+-- 2.0. База + регионы + типы для треугольника убытков
+-- ============================================================
+
+DROP TABLE IF EXISTS actuary.rep_osago_triangle_tmp;
+CREATE TABLE actuary.rep_osago_triangle_tmp AS
+SELECT
+    -- Служебные поля
+    report_date,
+    CURRENT_TIMESTAMP as sysmoment,
+    current_user as osuser,
+    
+    -- Исходные поля
+    s.REGIONNAME_FINAL as "Регион",
+    s.CATEGORY_ID_FINAL as "Тип страхователя_код",
+    s.ARM_EKIS_CONTRACTOPTION as "Опция договора",
+    s.SALECHANNELFULLNAME_DE as "Канал продаж",
+    s.IS_PVU as "Тип убытка",
+    s.D1_MONTH as "Месяц начала",
+    s.ACCIDENT_MONTH as "Месяц события",
+    s.DEVELOPMENT_MONTH as "Месяц развития",
+    s.IS_POLICY_FROM_EA,
+    s.IS_POLICY_FROM_E_GARANT,
+    s.IS_NEED_REINSURANCE as "Передан в пул?",
+    s.OSAGO_CHAIN_NUMBER as "Цепочка ОСАГО",
+    s.RESERVESUM as "Сумма ЗНУ",
+    s.RESERVECOUNT as "Количество ЗНУ",
+    s.APPROVEDSUM as "Сумма выплат",
+    s.APPROVEDCOUNT as "Количество выплат",
+    
+    -- Вычисляемые поля
+    CASE 
+        WHEN s.ARM_EKIS_CONTRACTOPTION = 'Возобновлённый' THEN 'Возобновлённый'
+        ELSE 'Первоначальный'
+    END as "Признак договора",
+    
+    CASE 
+        WHEN s.CATEGORY_ID_FINAL IN ('OSAGO', 'OSAGOFL') THEN
+            CASE 
+                WHEN s.OSAGO_CHAIN_NUMBER > 1 THEN 'Возобновлённый'
+                ELSE 'Первоначальный'
+            END
+        ELSE
+            CASE 
+                WHEN s.ARM_EKIS_CONTRACTOPTION = 'Возобновлённый' THEN 'Возобновлённый'
+                ELSE 'Первоначальный'
+            END
+    END as "Признак пролонгации",
+    
+    CASE 
+        WHEN s.SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг') 
+             OR s.IS_POLICY_FROM_E_GARANT = '1' THEN 1 
+        ELSE 0 
+    END as "Флаг Е-ОСАГО",
+    
+    CASE 
+        WHEN s.CATEGORY_ID_FINAL IN ('OSAGO', 'OSAGOFL') THEN 'ФЛ'
+        ELSE 'ЮЛ'
+    END as "Тип страхователя",
+    
+    to_char(date_trunc('quarter', to_date(s.ACCIDENT_MONTH, 'YYYYMM')), 'YYYY_"_"Q') AS "Квартал события",
+    
+    -- Присоединяем данные из справочника регионов
+    r."Федеральный округ" as "Федеральный округ",
+    r."Флаг РСА-Агент" as "Флаг Токс_регион",
+    r."Регион крупный" as "Регион крупный",
+    
+    -- Присоединяем данные из справочника типов убытков
+    ct."Тип убытка крупный" as "Тип убытка крупный"
+
+FROM actuary.REP_GURU_OSAGO_TRIANGLE_R_repsrv s
+LEFT JOIN actuary.ref_xls4triangles_regions r ON s.REGIONNAME_FINAL = r."Регион"
+LEFT JOIN actuary.ref_xls4triangles_osago_type_claim ct ON s.IS_PVU = ct."Тип убытка"
+WHERE p_check = 1;
+
+get diagnostics v_row_count := ROW_COUNT;
+PERFORM actuary.logz(v_pack_name, p_procedure_name, 'rep_osago_triangle_tmp <= '||to_char(p_report_date, 'dd.mm.yyyy'), 'step01', v_row_count);
+
+-- ============================================================
+-- 2.1. ОСАГО Треугольник убытков
+-- ============================================================
+
+DROP TABLE IF EXISTS actuary.rep_osago_triangle;
+CREATE TABLE actuary.rep_osago_triangle AS
 
 WITH
 aggregated_data AS (
     SELECT 
         -- Группировочные поля (уже с русскими названиями из tmp)
         report_date,
-        KC,
-        "База данных",
         "Регион",
-        "Регион ОФР",
-        "Тип страхователя",
+        "Тип страхователя_код",
+        "Опция договора",
+        "Канал продаж",
+        "Тип убытка",
+        "Месяц начала",
+        "Месяц события",
+        "Месяц развития",
         IS_POLICY_FROM_EA,
         IS_POLICY_FROM_E_GARANT,
         "Передан в пул?",
-        IS_DEAD_POLICY,
-        "Канал продаж",
+        "Цепочка ОСАГО",
         "Признак договора",
         "Признак пролонгации",
-        "Квартал начала",
-        "Месяц начала",
-        "Квартал",
-        "Месяц",
         "Флаг Е-ОСАГО",
-        "Тип страхователя_кр",
+        "Тип страхователя",
+        "Квартал события",
         "Федеральный округ",
         "Флаг Токс_регион",
         "Регион крупный",
+        "Тип убытка крупный",
 
         -- Агрегированные поля:
-        SUM(EXPOSURE) as "Количество полисолет",
-        CASE 
-            WHEN "Месяц" <= TO_CHAR(report_date, 'YYYYMM')
-            THEN SUM(EXPOSURE)
-            ELSE 0 
-        END as "Экспозиция",
-        SUM(EP) as "Заработанная премия",
-        SUM(POLICYCOUNT) as "Количество договоров",
-        SUM(WRITTENPREMIUM) as "Начисленная премия",
-        SUM(RETURNPREMIUM) as "Возвраты"
-    FROM actuary.rep_osago_ep_expo_tmp
+        SUM("Сумма ЗНУ") as "Сумма ЗНУ",
+        SUM("Количество ЗНУ") as "Количество ЗНУ",
+        SUM("Сумма выплат") as "Сумма выплат",
+        SUM("Количество выплат") as "Количество выплат",
+        
+        -- Итоговые агрегированные метрики
+        SUM(COALESCE("Количество выплат", 0) + COALESCE("Количество ЗНУ", 0)) as "Количество_убытков",
+        SUM(COALESCE("Сумма выплат", 0) + COALESCE("Сумма ЗНУ", 0)) as "Сумма_убытков",
+        
+        COUNT(*) as "Количество_записей"
+        
+    FROM actuary.rep_osago_triangle_tmp
     GROUP BY 
         report_date,
-        KC,
-        "База данных",
         "Регион",
-        "Регион ОФР",
-        "Тип страхователя",
+        "Тип страхователя_код",
+        "Опция договора",
+        "Канал продаж",
+        "Тип убытка",
+        "Месяц начала",
+        "Месяц события",
+        "Месяц развития",
         IS_POLICY_FROM_EA,
         IS_POLICY_FROM_E_GARANT,
         "Передан в пул?",
-        IS_DEAD_POLICY,
-        "Канал продаж",
+        "Цепочка ОСАГО",
         "Признак договора",
         "Признак пролонгации",
-        "Квартал начала",
-        "Месяц начала",
-        "Квартал",
-        "Месяц",
         "Флаг Е-ОСАГО",
-        "Тип страхователя_кр",
+        "Тип страхователя",
+        "Квартал события",
         "Федеральный округ",
         "Флаг Токс_регион",
-        "Регион крупный"
+        "Регион крупный",
+        "Тип убытка крупный"
 )
+
 SELECT 
-    CURRENT_TIMESTAMP,
-    session_user,
+    -- Служебные поля
+    CURRENT_TIMESTAMP as sysmoment,
+    session_user as osuser,
     report_date,
     
-    "База данных",
+    -- Основные поля
     "Регион",
-    "Регион ОФР",
-    "Тип страхователя",
+    "Тип страхователя_код",
+    "Опция договора",
+    "Канал продаж",
+    "Тип убытка",
+    "Месяц начала",
+    "Месяц события",
+    "Месяц развития",
     IS_POLICY_FROM_EA,
     IS_POLICY_FROM_E_GARANT,
     "Передан в пул?",
-    IS_DEAD_POLICY,
-    "Канал продаж",
+    "Цепочка ОСАГО",
     "Признак договора",
     "Признак пролонгации",
-    "Квартал начала",
-    "Месяц начала",
-    "Квартал",
-    "Месяц",
     "Флаг Е-ОСАГО",
-    "Тип страхователя_кр",
-    "Передан в пул?",
-    "Федеральный округ",
-    "Флаг Токс_регион",
-    "Регион крупный",
-    
-    "Экспозиция",
-    "Заработанная премия",
-    "Количество договоров",
-    "Количество полисолет",
-    "Начисленная премия",
-    "Возвраты"
-FROM aggregated_data
-WHERE (IS_DEAD_POLICY IS NULL OR IS_DEAD_POLICY = 0 OR IS_DEAD_POLICY = -1);
-
---1.2. ОСАГО ЗП и экспозиция 20гг-мм_усеченный
-DROP TABLE IF EXISTS actuary.rep_osago_ep_expo_trunc;
-CREATE TABLE actuary.rep_osago_ep_expo_trunc AS
-
-WITH
-aggregated_data AS (
-    SELECT 
-        -- Группировочные поля (только нужные для усеченной версии)
-        report_date,
-        KC,
-        "База данных",
-        "Тип страхователя",
-        "Передан в пул?",
-        IS_DEAD_POLICY,
-        "Признак пролонгации",
-        "Квартал начала",
-        "Месяц начала",
-        "Квартал",
-        "Месяц",
-        "Флаг Е-ОСАГО",
-        "Тип страхователя_кр",
-        "Федеральный округ",
-        "Флаг Токс_регион",
-        "Регион крупный",
-
-        -- Агрегированные поля:
-        CASE 
-            WHEN "Месяц" <= TO_CHAR(report_date, 'YYYYMM')
-            THEN SUM(EXPOSURE)
-            ELSE 0 
-        END as "Экспозиция",
-        SUM(EP) as "Заработанная премия",
-        SUM(POLICYCOUNT) as "Количество договоров",
-        SUM(WRITTENPREMIUM) as "Начисленная премия",
-        SUM(RETURNPREMIUM) as "Возвраты"
-    FROM actuary.rep_osago_ep_expo_tmp
-    GROUP BY 
-        report_date,
-        KC,
-        "База данных",
-        "Тип страхователя",
-        "Передан в пул?",
-        IS_DEAD_POLICY,
-        "Признак пролонгации",
-        "Квартал начала",
-        "Месяц начала",
-        "Квартал",
-        "Месяц",
-        "Флаг Е-ОСАГО",
-        "Тип страхователя_кр",
-        "Федеральный округ",
-        "Флаг Токс_регион",
-        "Регион крупный"
-)
-SELECT 
-    CURRENT_TIMESTAMP,
-    session_user,
-    report_date,
-    
-    "База данных",
     "Тип страхователя",
-    "Передан в пул?",
-    IS_DEAD_POLICY,
-    "Признак пролонгации",
-    "Квартал начала",
-    "Месяц начала",
-    "Квартал",
-    "Месяц",
-    "Флаг Е-ОСАГО",
-    "Тип страхователя_кр",
+    "Квартал события",
     "Федеральный округ",
     "Флаг Токс_регион",
     "Регион крупный",
+    "Тип убытка крупный",
     
-    "Экспозиция",
-    "Заработанная премия",
-    "Количество договоров",
-    "Начисленная премия",
-    "Возвраты"
-FROM aggregated_data
-WHERE (IS_DEAD_POLICY IS NULL OR IS_DEAD_POLICY = 0 OR IS_DEAD_POLICY = -1);
+    -- Метрики
+    "Сумма ЗНУ",
+    "Количество ЗНУ",
+    "Сумма выплат",
+    "Количество выплат",
+    "Количество_убытков",
+    "Сумма_убытков",
+    "Количество_записей"
+    
+FROM aggregated_data;
