@@ -8,6 +8,7 @@ AS $procedure$
 /*
 предварительно:
 repsrv2edw_XLS_EXPOSISION_PREMIUM_OSAGO_O
+repsrv2edw_REP_GURU_OSAGO_TRIANGLE_R
 xls2edw_ref_xls4triangles
 
 
@@ -37,11 +38,12 @@ declare
     v_row_count          integer := 0;
     v_sql                text;
 
-    p_check              integer := 1;
+    p_check              integer := 0;
 begin
 -- Логирование общего старта процедуры
 PERFORM actuary.logz(v_pack_name, p_procedure_name, 'started', 'step00', 0);
 
+--ОСАГО ЗП и экспозиция 20гг-мм.csv
 DROP TABLE IF EXISTS actuary.rep_osago_ep_expo;
 		CREATE TABLE actuary.rep_osago_ep_expo AS
 
@@ -85,6 +87,7 @@ WITH base_data AS (
         END as flag_e_osago,
         CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 'ФЛ' ELSE 'ЮЛ' END as insured_type_short
     FROM actuary.XLS_EXPOSISION_PREMIUM_OSAGO_O_repsrv
+    where p_check = 1
 ),
 aggregated_data AS (
     SELECT 
@@ -178,7 +181,7 @@ aggregated_data AS (
 	    r."Флаг РСА-Агент" as "Флаг Токс_регион",
 	    r."Регион крупный" as "Регион крупный",
        
-        ad.exposure_sum as "Экспозиция",  -- замените '2026-07' на нужный параметр
+        ad.exposure_sum as "Экспозиция",  -- kms
         ad.ep_sum as "Заработанная премия",
         ad.policycount_sum as "Количество договоров",
         ad.POLICYCOUNT as "Количество полисолет",  -- как в оригинале
@@ -189,6 +192,243 @@ aggregated_data AS (
     WHERE (ad.IS_DEAD_POLICY IS NULL OR ad.IS_DEAD_POLICY = 0 OR ad.IS_DEAD_POLICY = -1)
 ;
 
+--ОСАГО понесенные убытки 20гг-мм.csv
+DROP TABLE IF EXISTS actuary.rep_osago_triangle;
+		CREATE TABLE actuary.rep_osago_triangle AS
+
+    WITH 
+    -- Шаг 1: Базовые преобразования (аналог [Данные] в Qlik)
+    base_transformed AS (
+        SELECT 
+	        -- Служебные поля
+	        report_date,
+	        CURRENT_TIMESTAMP as sysmoment,
+	        current_user as osuser,
+
+            -- Исходные поля (латиница)
+            s.REGIONNAME_FINAL,
+            s.CATEGORY_ID_FINAL,
+            s.ARM_EKIS_CONTRACTOPTION,
+            s.SALECHANNELFULLNAME_DE,
+            s.IS_PVU,
+            s.D1_MONTH,
+            s.ACCIDENT_MONTH,
+            s.DEVELOPMENT_MONTH,
+            s.IS_POLICY_FROM_EA,
+            s.IS_POLICY_FROM_E_GARANT,
+            s.IS_NEED_REINSURANCE,
+            s.OSAGO_CHAIN_NUMBER,
+            s.RESERVESUM,
+            s.RESERVECOUNT,
+            s.APPROVEDSUM,
+            s.APPROVEDCOUNT,
+            
+            -- [Регион] - прямое поле
+            s.REGIONNAME_FINAL as region_name,
+            
+            -- [Признак договора]
+            CASE 
+                WHEN s.ARM_EKIS_CONTRACTOPTION = 'Возобновлённый' THEN 'Возобновлённый'
+                ELSE 'Первоначальный'
+            END as contract_type,
+            
+            -- [Признак пролонгации] - сложная логика из Qlik
+            CASE 
+                WHEN s.CATEGORY_ID_FINAL IN ('OSAGO', 'OSAGOFL') THEN
+                    CASE 
+                        WHEN s.OSAGO_CHAIN_NUMBER > 1 THEN 'Возобновлённый'
+                        ELSE 'Первоначальный'
+                    END
+                ELSE
+                    CASE 
+                        WHEN s.ARM_EKIS_CONTRACTOPTION = 'Возобновлённый' THEN 'Возобновлённый'
+                        ELSE 'Первоначальный'
+                    END
+            END as prolongation_type,
+            
+            -- [Канал продаж] - прямое поле
+            s.SALECHANNELFULLNAME_DE as sale_channel,
+            
+            -- [Флаг Е-ОСАГО]
+            CASE 
+                WHEN s.SALECHANNELFULLNAME_DE IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг') 
+                     OR s.IS_POLICY_FROM_E_GARANT = '1' THEN 1
+                ELSE 0
+            END as flag_e_osago,
+            
+            -- [Тип убытка] - из IS_PVU
+            s.IS_PVU as claim_type,
+            
+            -- [Месяц начала]
+            s.D1_MONTH as start_month,
+            
+
+            to_char(date_trunc('quarter', to_date(s.ACCIDENT_MONTH, 'YYYYMM')), 'YYYY_"_"Q') AS event_quarter,
+            
+            
+            -- Итоговые метрики
+            s.RESERVESUM as reserve_sum,
+            s.RESERVECOUNT as reserve_count,
+            s.APPROVEDSUM as approved_sum,
+            s.APPROVEDCOUNT as approved_count
+            
+        FROM actuary.REP_GURU_OSAGO_TRIANGLE_R_repsrv s
+        where p_check = 1
+        -- Фильтр: убираем dead policy (если есть такое поле)
+        -- WHERE COALESCE(s.IS_DEAD_POLICY, 0) = 0
+    ),
+    
+    -- Шаг 2: Присоединение справочников
+    with_dimensions AS (
+        SELECT 
+            b.*,
+            
+            -- Квартал события
+         --   q."Квартал события" as event_quarter,
+            
+            -- Регионы
+            r."Федеральный округ" as federal_district,
+            r."Флаг РСА-Агент" as flag_toks_region,
+            r."Регион крупный" as region_big,
+            
+            -- Тип убытка крупный
+            ct."Тип убытка крупный" as claim_type_big,
+            
+            -- Тип страхователя
+            ti."Тип страхователя" as insurer_type
+            
+        FROM base_transformed b
+        
+        -- LEFT JOIN с кварталами
+       -- LEFT JOIN actuary.ref_xls4triangles_quarters q   ON b.accident_month = q."Месяц события"
+        
+        -- LEFT JOIN с регионами
+        LEFT JOIN actuary.ref_xls4triangles_regions r 
+            ON b.region_name = r."Регион"
+        
+        -- LEFT JOIN с типом убытка
+        LEFT JOIN actuary.ref_xls4triangles_osago_type_claim ct 
+            ON b.claim_type = ct."Тип убытка"
+        
+        -- LEFT JOIN с типом страхователя
+        LEFT JOIN actuary.ref_xls4triangles_type_insurer ti 
+            ON b.CATEGORY_ID_FINAL = ti.category_id_final
+    ),
+    
+    -- Шаг 3: Агрегация и расчет [Регион ОФР]
+    aggregated AS (
+        SELECT 
+            report_date,
+            -- Группировочные поля
+            start_month,
+            accident_month, ----
+            development_month,
+            sale_channel,
+            flag_e_osago,
+            IS_POLICY_FROM_EA,
+            IS_POLICY_FROM_E_GARANT,
+            IS_NEED_REINSURANCE,
+            flag_toks_region,
+            region_name,
+            insurer_type,
+            claim_type_big,
+            contract_type,
+            prolongation_type,
+            event_quarter,
+            federal_district,
+            region_big,
+            
+            -- [Регион ОФР] - сложная логика из Qlik
+            CASE 
+                WHEN IS_NEED_REINSURANCE = '1' THEN 'Е-Гарант и пул, в т. ч. ЮЛ'
+                WHEN insurer_type = 'ФЛ' AND region_name = 'Центральный офис' THEN
+                    CASE 
+                        WHEN IS_POLICY_FROM_E_GARANT = '1' THEN 'Е-Гарант и пул, в т. ч. ЮЛ'
+                        WHEN sale_channel IN ('грМК Партнер Онлайн', 'грМК Сайт', 'грМК Телемаркетинг') 
+                            THEN 'Онлайн-ОСАГО'
+                        ELSE region_name
+                    END
+                ELSE region_name
+            END as region_ofr,
+            
+            -- Агрегация убытков (как в Qlik)
+            SUM(COALESCE(approved_count, 0) + COALESCE(reserve_count, 0)) as loss_count,
+            SUM(COALESCE(approved_sum, 0) + COALESCE(reserve_sum, 0)) as loss_sum,
+            
+            -- Дополнительно для отладки (можно убрать)
+            SUM(COALESCE(approved_count, 0)) as approved_count_sum,
+            SUM(COALESCE(reserve_count, 0)) as reserve_count_sum,
+            SUM(COALESCE(approved_sum, 0)) as approved_sum_sum,
+            SUM(COALESCE(reserve_sum, 0)) as reserve_sum_sum,
+            
+            -- Счетчик записей
+            COUNT(*) as row_count
+            
+        FROM with_dimensions
+        GROUP BY 
+        report_date,
+            start_month,
+            accident_month,
+            development_month,
+            sale_channel,
+            flag_e_osago,
+            IS_POLICY_FROM_EA,
+            IS_POLICY_FROM_E_GARANT,
+            IS_NEED_REINSURANCE,
+            flag_toks_region,
+            region_name,
+            insurer_type,
+            claim_type_big,
+            contract_type,
+            prolongation_type,
+            event_quarter,
+            federal_district,
+            region_big
+    )
+    
+    -- Шаг 4: Финальный SELECT с русскими названиями
+    SELECT 
+        -- Служебные поля
+        report_date,
+        CURRENT_TIMESTAMP as sysmoment,
+        current_user as osuser,
+        
+        -- Основные поля с русскими названиями
+        start_month as "Месяц начала",
+        accident_month as "Месяц события",
+        development_month as "Месяц развития",
+        sale_channel as "Канал продаж",
+        flag_e_osago as "Флаг Е-ОСАГО",
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
+        IS_NEED_REINSURANCE,
+        flag_toks_region as "Флаг Токс_регион",
+        region_name as "Регион",
+        region_ofr as "Регион ОФР",
+        region_big as "Регион крупный",
+        claim_type_big as "Тип убытка крупный",
+        contract_type as "Признак договора",
+        prolongation_type as "Признак пролонгации",
+        insurer_type as "Тип страхователя",
+        event_quarter as "Квартал события",
+        federal_district as "Федеральный округ",
+        loss_count as "Количество_убытков",
+        loss_sum as "Сумма_убытков",
+        
+        -- Дополнительные поля для отладки (можно закомментировать)
+        approved_count_sum as "Выплаты количество",
+        reserve_count_sum as "ЗНУ количество",
+        approved_sum_sum as "Выплаты сумма",
+        reserve_sum_sum as "ЗНУ сумма",
+        row_count as "Количество_записей"
+        
+    FROM aggregated
+    /*ORDER BY 
+        start_month,
+        accident_month,
+        development_month,
+        region_name,
+        insurer_type*/;
 
     -- Итоговое логирование успешного завершения всей процедуры
 PERFORM actuary.logz(v_pack_name, p_procedure_name, 'finished', 'step100', 0);
