@@ -1,7 +1,126 @@
-CREATE TABLE actuary.ref_xls4qlik_regions (
-	"Регион" text NULL,
-	"Федеральный округ" text NULL,
-	"Флаг РСА-Агент" float8 NULL,
-	"Регион крупный" text NULL,
-	"Регион для отчета" text NULL
-);
+LIB CONNECT TO 'Oracle_msk-m1-repsrv.rgs.ru_(actuary)';
+
+
+If IsPartialReload()=0 then
+
+/* загрузка первичной таблицы */
+[REP_GURU_OSAGO_TRIANGLE_R]:
+SELECT 
+	REGIONNAME_FINAL, 
+	CATEGORY_ID_FINAL, 
+	ARM_EKIS_CONTRACTOPTION, 
+	SALECHANNELFULLNAME_DE, 
+	IS_PVU,
+    D1_MONTH,
+	ACCIDENT_MONTH, 
+	DEVELOPMENT_MONTH, 
+    IS_POLICY_FROM_EA,
+	IS_POLICY_FROM_E_GARANT,
+    IS_NEED_REINSURANCE,
+    OSAGO_CHAIN_NUMBER,
+	RESERVESUM, 
+	RESERVECOUNT, 
+	APPROVEDSUM, 
+	APPROVEDCOUNT 
+FROM ACTUARY.REP_GURU_OSAGO_TRIANGLE_R;
+
+// LIB CONNECT TO 'Oracle_msk-m1-repsrv.rgs.ru (rgsmain_mskazakov)';
+
+/* обработка полей первичной таблицы*/
+NoConcatenate
+[Данные]:
+load
+	REGIONNAME_FINAL as Регион,
+    CATEGORY_ID_FINAL,
+   	if(ARM_EKIS_CONTRACTOPTION='Возобновлённый',ARM_EKIS_CONTRACTOPTION,'Первоначальный') as [Признак договора],
+    if(CATEGORY_ID_FINAL='OSAGO' or CATEGORY_ID_FINAL='OSAGOFL',if(OSAGO_CHAIN_NUMBER>1,'Возобновлённый', 'Первоначальный'),if(ARM_EKIS_CONTRACTOPTION='Возобновлённый',ARM_EKIS_CONTRACTOPTION,'Первоначальный')) as [Признак пролонгации],
+    ARM_EKIS_CONTRACTOPTION,
+    SALECHANNELFULLNAME_DE as [Канал продаж],
+    if (SALECHANNELFULLNAME_DE='грМК Партнер Онлайн' or SALECHANNELFULLNAME_DE='грМК Сайт' or SALECHANNELFULLNAME_DE='грМК Телемаркетинг' or IS_POLICY_FROM_E_GARANT='1',1,0) as [Флаг Е-ОСАГО],
+    IS_POLICY_FROM_EA,
+	IS_POLICY_FROM_E_GARANT,
+    IS_NEED_REINSURANCE,
+    OSAGO_CHAIN_NUMBER,
+    IS_PVU as [Тип убытка],
+    D1_MONTH as [Месяц начала],
+    Text(ACCIDENT_MONTH) as [Месяц события],
+    DEVELOPMENT_MONTH as [Месяц развития],
+	RESERVESUM as [ЗНУ сумма],
+    RESERVECOUNT as [ЗНУ количество],
+    APPROVEDSUM as [Выплаты сумма],
+    APPROVEDCOUNT as [Выплаты количество]
+Resident [REP_GURU_OSAGO_TRIANGLE_R];
+    
+drop Table [REP_GURU_OSAGO_TRIANGLE_R];
+
+/* подгрузка дополнительных атрибутов и группировок*/
+left join (Данные)
+LOAD
+    text([Месяц события]) as [Месяц события],
+    [Квартал события]
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx]
+(ooxml, embedded labels, table is Кварталы);
+
+left join (Данные)
+LOAD
+    Регион,
+    [Федеральный округ],
+    [Флаг РСА-Агент] as [Флаг Токс_регион],
+    [Регион крупный]
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Регионы);
+
+left join (Данные)
+LOAD
+    [Тип убытка],
+    [Тип убытка крупный]
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is ОСАГО_тип_убытка);
+
+left join (Данные)
+LOAD
+    CATEGORY_ID_FINAL,
+    [Тип страхователя]
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is [Тип страхователя]);
+
+end if;
+
+
+/*создание и выгрузка таблицы для расчета в Excel*/
+NoConcatenate
+[ОСАГО_понесенные_убытки]:
+add Load
+	[Месяц начала],
+    [Месяц события],
+    [Месяц развития],
+    [Канал продаж],
+    [Флаг Е-ОСАГО],
+    IS_POLICY_FROM_EA,
+	IS_POLICY_FROM_E_GARANT,
+    IS_NEED_REINSURANCE,
+    [Флаг Токс_регион],
+    Регион,
+    if(IS_NEED_REINSURANCE='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Тип страхователя]='ФЛ' and Регион='Центральный офис',if(IS_POLICY_FROM_E_GARANT='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Канал продаж]='грМК Партнер Онлайн' or [Канал продаж]='грМК Сайт' or [Канал продаж]='грМК Телемаркетинг','Онлайн-ОСАГО',Регион)),Регион)) as [Регион ОФР],
+    [Регион крупный],
+    [Тип убытка крупный],
+    [Признак договора],
+    [Признак пролонгации],
+    [Тип страхователя],
+    (sum([Выплаты количество])+sum([ЗНУ количество])) as Количество_убытков,
+    (sum([Выплаты сумма])+sum([ЗНУ сумма])) as Сумма_убытков
+resident Данные
+group by
+	[Месяц начала],
+    [Месяц события],
+    [Месяц развития],
+    [Канал продаж],
+    [Флаг Е-ОСАГО],
+    IS_POLICY_FROM_EA,
+	IS_POLICY_FROM_E_GARANT,
+    IS_NEED_REINSURANCE,
+    [Флаг Токс_регион],
+    Регион,
+    if(IS_NEED_REINSURANCE='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Тип страхователя]='ФЛ' and Регион='Центральный офис',if(IS_POLICY_FROM_E_GARANT='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Канал продаж]='грМК Партнер Онлайн' or [Канал продаж]='грМК Сайт' or [Канал продаж]='грМК Телемаркетинг','Онлайн-ОСАГО',Регион)),Регион)),
+    [Регион крупный],
+    [Тип убытка крупный],
+    [Признак договора],
+    [Признак пролонгации],
+    [Тип страхователя];
