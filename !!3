@@ -15,3 +15,27 @@ CREATE TABLE actuary.ref_xls4triangles_type_insurer (
 	category_id_final text NULL,
 	"Тип страхователя" text NULL
 );
+
+CREATE TABLE actuary.ref_xls4triangles_coef_ts (
+	"Тип страхователя" text NULL,
+	"Признак пролонгации" text NULL,
+	"Месяц_" float8 NULL,
+	k_risk_all text NULL,
+	k_season_all text NULL,
+	k_risk_ppvu text NULL,
+	k_season_ppvu text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_coefficients (
+	"Сегмент" text NULL,
+	"Месяц" text NULL,
+	"Сдвиг" text NULL,
+	"Коэф_развития_1" text NULL,
+	"Коэф_развития_2" text NULL
+);
+
+CREATE TABLE actuary.ref_xls4triangles_segments (
+	"Тип страхователя" text NULL,
+	"Тип убытка крупный" text NULL,
+	"Сегмент" text NULL
+);
