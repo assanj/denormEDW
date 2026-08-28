@@ -1,126 +1,145 @@
-LIB CONNECT TO 'Oracle_msk-m1-repsrv.rgs.ru_(actuary)';
+let report_date='31.07.2026';
 
-
-If IsPartialReload()=0 then
-
-/* загрузка первичной таблицы */
-[REP_GURU_OSAGO_TRIANGLE_R]:
-SELECT 
-	REGIONNAME_FINAL, 
-	CATEGORY_ID_FINAL, 
-	ARM_EKIS_CONTRACTOPTION, 
-	SALECHANNELFULLNAME_DE, 
-	IS_PVU,
-    D1_MONTH,
-	ACCIDENT_MONTH, 
-	DEVELOPMENT_MONTH, 
-    IS_POLICY_FROM_EA,
-	IS_POLICY_FROM_E_GARANT,
-    IS_NEED_REINSURANCE,
-    OSAGO_CHAIN_NUMBER,
-	RESERVESUM, 
-	RESERVECOUNT, 
-	APPROVEDSUM, 
-	APPROVEDCOUNT 
-FROM ACTUARY.REP_GURU_OSAGO_TRIANGLE_R;
-
-// LIB CONNECT TO 'Oracle_msk-m1-repsrv.rgs.ru (rgsmain_mskazakov)';
-
-/* обработка полей первичной таблицы*/
-NoConcatenate
-[Данные]:
-load
-	REGIONNAME_FINAL as Регион,
-    CATEGORY_ID_FINAL,
-   	if(ARM_EKIS_CONTRACTOPTION='Возобновлённый',ARM_EKIS_CONTRACTOPTION,'Первоначальный') as [Признак договора],
-    if(CATEGORY_ID_FINAL='OSAGO' or CATEGORY_ID_FINAL='OSAGOFL',if(OSAGO_CHAIN_NUMBER>1,'Возобновлённый', 'Первоначальный'),if(ARM_EKIS_CONTRACTOPTION='Возобновлённый',ARM_EKIS_CONTRACTOPTION,'Первоначальный')) as [Признак пролонгации],
-    ARM_EKIS_CONTRACTOPTION,
-    SALECHANNELFULLNAME_DE as [Канал продаж],
-    if (SALECHANNELFULLNAME_DE='грМК Партнер Онлайн' or SALECHANNELFULLNAME_DE='грМК Сайт' or SALECHANNELFULLNAME_DE='грМК Телемаркетинг' or IS_POLICY_FROM_E_GARANT='1',1,0) as [Флаг Е-ОСАГО],
-    IS_POLICY_FROM_EA,
-	IS_POLICY_FROM_E_GARANT,
-    IS_NEED_REINSURANCE,
-    OSAGO_CHAIN_NUMBER,
-    IS_PVU as [Тип убытка],
-    D1_MONTH as [Месяц начала],
-    Text(ACCIDENT_MONTH) as [Месяц события],
-    DEVELOPMENT_MONTH as [Месяц развития],
-	RESERVESUM as [ЗНУ сумма],
-    RESERVECOUNT as [ЗНУ количество],
-    APPROVEDSUM as [Выплаты сумма],
-    APPROVEDCOUNT as [Выплаты количество]
-Resident [REP_GURU_OSAGO_TRIANGLE_R];
-    
-drop Table [REP_GURU_OSAGO_TRIANGLE_R];
-
-/* подгрузка дополнительных атрибутов и группировок*/
-left join (Данные)
+if IsPartialReload()=0 then
+Данные:
 LOAD
-    text([Месяц события]) as [Месяц события],
-    [Квартал события]
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx]
-(ooxml, embedded labels, table is Кварталы);
-
-left join (Данные)
-LOAD
-    Регион,
-    [Федеральный округ],
-    [Флаг РСА-Агент] as [Флаг Токс_регион],
-    [Регион крупный]
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Регионы);
-
-left join (Данные)
-LOAD
-    [Тип убытка],
-    [Тип убытка крупный]
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is ОСАГО_тип_убытка);
-
-left join (Данные)
-LOAD
-    CATEGORY_ID_FINAL,
-    [Тип страхователя]
-FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is [Тип страхователя]);
-
-end if;
-
-
-/*создание и выгрузка таблицы для расчета в Excel*/
-NoConcatenate
-[ОСАГО_понесенные_убытки]:
-add Load
 	[Месяц начала],
-    [Месяц события],
-    [Месяц развития],
+    Месяц as Год_месяц,
     [Канал продаж],
     [Флаг Е-ОСАГО],
     IS_POLICY_FROM_EA,
-	IS_POLICY_FROM_E_GARANT,
-    IS_NEED_REINSURANCE,
+    IS_POLICY_FROM_E_GARANT,
+    [Передан в пул?],
+    if(IS_POLICY_FROM_EA='1' or IS_POLICY_FROM_E_GARANT='1','1','0') as [Барабаны РСА],
+    [Флаг Токс_регион] as [Флаг Токс_регион],
+    Регион,
+    [Регион ОФР],
+    [Регион крупный],
+    [Признак договора],
+    [Признак пролонгации],
+    [Тип страхователя],
+    ЗП as [Заработанная премия],
+    Экспозиция,
+    НП as [Начисленная премия],
+    [Кол-во договоров] as [Количество договоров],
+    [Кол-во полисолет] as [Количество полисолет]
+FROM [lib://qfs_Actuary/Выгрузки QS/ОСАГО ЗП и экспозиция 2026-07.csv] (txt, utf8, embedded labels, delimiter is ';', msq)
+where (left(Месяц,4)*1>=2019)
+// and Месяц <= 202307 /// обновить месяц!!!!
+;
+
+Concatenate (Данные)
+LOAD    
+    [Месяц начала],
+    [Месяц события] as Год_месяц,
+    [Месяц развития] as Сдвиг,
+    [Канал продаж],
+   	[Флаг Е-ОСАГО],
+    IS_POLICY_FROM_EA,
+    IS_POLICY_FROM_E_GARANT,
+    IS_NEED_REINSURANCE as [Передан в пул?],
+    if(IS_POLICY_FROM_EA='1' or IS_POLICY_FROM_E_GARANT='1','1','0') as [Барабаны РСА],
     [Флаг Токс_регион],
     Регион,
-    if(IS_NEED_REINSURANCE='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Тип страхователя]='ФЛ' and Регион='Центральный офис',if(IS_POLICY_FROM_E_GARANT='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Канал продаж]='грМК Партнер Онлайн' or [Канал продаж]='грМК Сайт' or [Канал продаж]='грМК Телемаркетинг','Онлайн-ОСАГО',Регион)),Регион)) as [Регион ОФР],
+    [Регион ОФР],
     [Регион крупный],
     [Тип убытка крупный],
     [Признак договора],
     [Признак пролонгации],
     [Тип страхователя],
-    (sum([Выплаты количество])+sum([ЗНУ количество])) as Количество_убытков,
-    (sum([Выплаты сумма])+sum([ЗНУ сумма])) as Сумма_убытков
-resident Данные
-group by
-	[Месяц начала],
-    [Месяц события],
-    [Месяц развития],
-    [Канал продаж],
-    [Флаг Е-ОСАГО],
-    IS_POLICY_FROM_EA,
-	IS_POLICY_FROM_E_GARANT,
-    IS_NEED_REINSURANCE,
-    [Флаг Токс_регион],
-    Регион,
-    if(IS_NEED_REINSURANCE='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Тип страхователя]='ФЛ' and Регион='Центральный офис',if(IS_POLICY_FROM_E_GARANT='1','Е-Гарант и пул, в т. ч. ЮЛ',if([Канал продаж]='грМК Партнер Онлайн' or [Канал продаж]='грМК Сайт' or [Канал продаж]='грМК Телемаркетинг','Онлайн-ОСАГО',Регион)),Регион)),
-    [Регион крупный],
+    Количество_убытков as [Количество убытков],
+    Сумма_убытков as [Сумма несудебных убытков]
+FROM [lib://qfs_Actuary/Выгрузки QS/ОСАГО понесенные убытки 2026-07.csv] (txt, utf8, embedded labels, delimiter is ';', msq)
+where (left([Месяц события],4)*1>=2019);
+
+left join (Данные)
+LOAD
+    [Тип страхователя],
     [Тип убытка крупный],
-    [Признак договора],
+    Сегмент
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Сегменты);
+
+left join (Данные)
+LOAD
+    Сегмент,
+    Месяц as Год_месяц,
+    (Сдвиг+1) as Сдвиг,
+    Коэф_развития_1, /* коэффициент для количества убытков*/
+    Коэф_развития_2  /* коэффициент для суммы убытков*/
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Коэффициенты);
+
+Left Join (Данные)
+LOAD
+    [Месяц события] as Год_месяц,
+    year(Дата) as Год,
+    Month(Дата) as Месяц,
+    date(Дата) as DS,
+    Квартал
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Кварталы);
+
+Left Join (Данные)
+LOAD
+	[Месяц события] as [Месяц начала],
+    [Квартал события] as [Квартал начала],
+    year(Дата) as [Год начала],
+    date(Дата) as DN
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx](ooxml, embedded labels, table is Кварталы);
+
+Left Join (Данные)
+LOAD
+    Месяц_COVID19 as Год_месяц,
+    1/k_covid19_osago as k_covid19_osago
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэффициенты);
+
+NoConcatenate
+Данные2:
+Load 
+	*,
+    month(DS)*1 as [Месяц календарный],
+    rangemax((year(DS)-year(DN))*12+(month(DS)*1-month(DN)*1)+1,1) as [Meсяц действия],
+    rangemax((year(DS)-year(DN))*12+(month(DS)*1-month(DN)*1)+1,1)+[Сдвиг]-1 as Сдвиг_дн
+resident Данные;
+
+drop table Данные;
+rename Table Данные2 to Данные;
+
+end if;
+
+// exit script;
+
+Left Join (Данные)
+add LOAD
+    [Тип убытка крупный],
+    [Тип страхователя],
     [Признак пролонгации],
-    [Тип страхователя];
+    Месяц_ as [Meсяц действия],
+    K_risk
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэффициенты);
+
+Left Join (Данные)
+add LOAD
+	[Тип убытка крупный],
+    [Тип страхователя],
+    [Признак пролонгации],
+    Месяц_ as [Месяц календарный],
+    K_season
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэффициенты);
+
+
+Left Join (Данные)
+add LOAD
+    [Тип страхователя],
+    [Признак пролонгации],
+    Месяц_ as [Meсяц действия],
+    K_risk_all,
+    K_risk_ppvu
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэф_ты);
+
+Left Join (Данные)
+add LOAD
+    [Тип страхователя],
+    [Признак пролонгации],
+    Месяц_ as [Месяц календарный],
+    K_season_all,
+    K_season_ppvu
+FROM [lib://qfs_Actuary/Справочники для треугольников.xlsx] (ooxml, embedded labels, table is Коэф_ты);
