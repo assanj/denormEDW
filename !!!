@@ -405,7 +405,7 @@ DROP TABLE IF EXISTS actuary.rep_osago_triangle;
         flag_e_osago as "Флаг Е-ОСАГО",
         IS_POLICY_FROM_EA,
         IS_POLICY_FROM_E_GARANT,
-        IS_NEED_REINSURANCE,
+        IS_NEED_REINSURANCE as "Передан в пул?",
         flag_toks_region as "Флаг Токс_регион",
         region_name as "Регион",
         region_ofr as "Регион ОФР",
@@ -433,6 +433,70 @@ DROP TABLE IF EXISTS actuary.rep_osago_triangle;
         development_month,
         region_name,
         insurer_type*/;
+
+
+
+--3. Создание объединенной таблицы данных (аналог Данные в Qlik)
+DROP TABLE IF EXISTS actuary.rep_osago_data;
+CREATE TABLE actuary.rep_osago_data AS
+SELECT 
+        "Месяц начала",
+        "Месяц",
+        "Канал продаж",
+        "Флаг Е-ОСАГО",
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
+        "Передан в пул?",
+        CASE WHEN IS_POLICY_FROM_EA = '1' OR IS_POLICY_FROM_E_GARANT = '1' THEN '1' ELSE '0' END as "Барабаны РСА",
+        "Флаг Токс_регион",
+        "Регион",
+        "Регион ОФР",
+        "Регион крупный",
+        "Признак договора",
+        "Признак пролонгации",
+        "Тип страхователя",
+        "Заработанная премия",
+        "Экспозиция",
+        "Начисленная премия",
+        "Количество договоров",
+        "Количество полисолет",
+        NULL::text as "Тип убытка крупный",
+        NULL::numeric as "Количество_убытков",
+        NULL::numeric as "Сумма_убытков",
+        'rep_osago_ep_expo' as data_source
+    FROM actuary.rep_osago_ep_expo
+    WHERE left("Месяц", 4)::int >= 2019
+union all
+    SELECT 
+        "Месяц начала",
+        "Месяц события",
+        "Канал продаж",
+        "Флаг Е-ОСАГО",
+        IS_POLICY_FROM_EA,
+        IS_POLICY_FROM_E_GARANT,
+        "Передан в пул?",
+        CASE WHEN IS_POLICY_FROM_EA = '1' OR IS_POLICY_FROM_E_GARANT = '1' THEN '1' ELSE '0' END as "Барабаны РСА",
+        "Флаг Токс_регион",
+        "Регион",
+        "Регион ОФР",
+        "Регион крупный",
+        "Признак договора",
+        "Признак пролонгации",
+        "Тип страхователя",
+        NULL::numeric as "Заработанная премия",
+        NULL::numeric as "Экспозиция",
+        NULL::numeric as "Начисленная премия",
+        NULL::numeric as "Количество договоров",
+        NULL::numeric as "Количество полисолет",
+        "Тип убытка крупный",
+        "Количество_убытков",
+        "Сумма_убытков",
+        'rep_osago_triangle' as data_source
+    FROM actuary.rep_osago_triangle
+    WHERE left("Месяц события", 4)::int >= 2019;
+
+
+
 
     -- Итоговое логирование успешного завершения всей процедуры
 PERFORM actuary.logz(v_pack_name, p_procedure_name, 'finished', 'step100', 0);
