@@ -1,110 +1,536 @@
-@echo off
-REM
-REM Licensed to the Apache Software Foundation (ASF) under one or more
-REM contributor license agreements.  See the NOTICE file distributed with
-REM this work for additional information regarding copyright ownership.
-REM The ASF licenses this file to You under the Apache License, Version 2.0
-REM (the "License"); you may not use this file except in compliance with
-REM the License.  You may obtain a copy of the License at
-REM
-REM       http://www.apache.org/licenses/LICENSE-2.0
-REM
-REM Unless required by applicable law or agreed to in writing, software
-REM distributed under the License is distributed on an "AS IS" BASIS,
-REM WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-REM See the License for the specific language governing permissions and
-REM limitations under the License.
-REM
-
-setlocal
-
-REM switch to script directory
-cd /D %~dp0
-
-REM Option to change the Characterset of the Windows Shell to show foreign caracters
-if not "%HOP_WINDOWS_SHELL_ENCODING%"=="" chcp %HOP_WINDOWS_SHELL_ENCODING%
-
-set LIBSPATH=lib\core
-set CLASSPATH=lib\core\*;lib\spark-client\*;lib\swt\win64\*
-
-REM Optional versioned Spark client pack
-if defined HOP_SPARK_CLIENT_VERSION if exist "lib\spark-clients\%HOP_SPARK_CLIENT_VERSION%\" (
-  set CLASSPATH=%CLASSPATH%;lib\spark-clients\%HOP_SPARK_CLIENT_VERSION%\*
-)
-
-
-
-
-
-:NormalStart
-REM set java primary is HOP_JAVA_HOME fallback to JAVA_HOME or default java
-if not "%HOP_JAVA_HOME%"=="" (
-    set _HOP_JAVA="%HOP_JAVA_HOME%\bin\java"
-) else if not "%JAVA_HOME%"=="" (
-    set _HOP_JAVA="%JAVA_HOME%\bin\java"
-) else (
-    set _HOP_JAVA=java
-)
-
-REM # Settings for all OSses
-
-if "%HOP_OPTIONS%"=="" set HOP_OPTIONS=-Xmx2048m
-
-REM
-REM If the user passes in DEBUG as the first parameter, it starts Hop in debugger mode and opens port 5009
-REM to allow attaching a debugger to step code.
-if [%1]==[DEBUG] (
-REM # optional line for attaching a debugger
-set HOP_OPTIONS=%HOP_OPTIONS% -Xdebug -Xnoagent -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5009)
-
-REM Pass HOP variables if they're set.
-if not "%HOP_AUDIT_FOLDER%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_AUDIT_FOLDER="%HOP_AUDIT_FOLDER%"
-) else (
-    set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_AUDIT_FOLDER=.\audit
-)
-if not "%HOP_CONFIG_FOLDER%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_CONFIG_FOLDER="%HOP_CONFIG_FOLDER%"
-)
-if not "%HOP_SHARED_JDBC_FOLDERS%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_SHARED_JDBC_FOLDERS="%HOP_SHARED_JDBC_FOLDERS%"
-)
-if not "%HOP_PLUGIN_BASE_FOLDERS%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_PLUGIN_BASE_FOLDERS="%HOP_PLUGIN_BASE_FOLDERS%"
-)
-if not "%HOP_PASSWORD_ENCODER_PLUGIN%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_PASSWORD_ENCODER_PLUGIN=%HOP_PASSWORD_ENCODER_PLUGIN%
-)
-if not "%HOP_AES_ENCODER_KEY%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_AES_ENCODER_KEY=%HOP_AES_ENCODER_KEY%
-)
-if not "%HOP_AES_ENCODER_KEY_FILE%"=="" (
-  set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_AES_ENCODER_KEY_FILE=%HOP_AES_ENCODER_KEY_FILE%
-)
-
-set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_PLATFORM_OS=Windows
-set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_PLATFORM_RUNTIME=Server
-set HOP_OPTIONS=%HOP_OPTIONS% -DHOP_AUTO_CREATE_CONFIG=Y
-set HOP_OPTIONS=%HOP_OPTIONS% --add-opens java.xml/jdk.xml.internal=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.lang.invoke=ALL-UNNAMED --add-opens java.base/java.lang.reflect=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED --add-opens java.base/java.net=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED --add-opens java.base/java.util.concurrent=ALL-UNNAMED --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.base/sun.nio.cs=ALL-UNNAMED --add-opens java.base/sun.security.action=ALL-UNNAMED --add-opens java.base/sun.util.calendar=ALL-UNNAMED --add-opens java.security.jgss/sun.security.krb5=ALL-UNNAMED --add-exports java.base/sun.nio.ch=ALL-UNNAMED
-
-echo ===[Environment Settings - hop-server.bat]====================================
-echo.
-echo Java identified as %_HOP_JAVA%
-echo.
-echo HOP_OPTIONS=%HOP_OPTIONS%
-echo.
-echo.
-rem ===[Collect command line arguments...]======================================
-if [%1]==[DEBUG] (
-FOR /f "tokens=1*" %%x IN ("%*") DO set _cmdline=%%y
-GOTO Run
-)
-set _cmdline=%*
-
-:Run
-echo Command to start Hop will be:
-echo %_HOP_JAVA% -classpath %CLASSPATH% -Djava.library.path=%LIBSPATH% %HOP_OPTIONS% org.apache.hop.www.HopServer %_cmdline%
-echo.
-echo ===[Starting HopServer]=========================================================
-
-%_HOP_JAVA% -classpath %CLASSPATH% -Djava.library.path=%LIBSPATH% %HOP_OPTIONS% org.apache.hop.www.HopServer %_cmdline%
+{
+  "variables" : [
+    {
+      "name" : "HOP_ALLOW_UNSUPPORTED",
+      "value" : "N",
+      "description" : "Set to 'Y' to bypass the engine-compatibility gate and run pipelines/workflows that contain transforms or actions marked UNSUPPORTED on the selected engine. Run-scoped, not persisted."
+    },
+    {
+      "name" : "HOP_MAX_LOG_SIZE_IN_LINES",
+      "value" : "0",
+      "description" : "The maximum number of log lines that are kept internally by Hop. Set to 0 to keep all rows (default)"
+    },
+    {
+      "name" : "HOP_MAX_LOG_TIMEOUT_IN_MINUTES",
+      "value" : "1440",
+      "description" : "The maximum age (in minutes) of a log line while being kept internally by Hop. Set to 0 to keep all rows indefinitely (default)"
+    },
+    {
+      "name" : "HOP_MAX_LOGGING_REGISTRY_SIZE",
+      "value" : "10000",
+      "description" : "The maximum number of logging registry entries kept in memory for logging purposes. This is the number of logging objects, a logging object can be a pipeline/workflow/transform/action or a couple of system-level loggers."
+    },
+    {
+      "name" : "HOP_LOG_TAB_REFRESH_DELAY",
+      "value" : "1000",
+      "description" : "The hop log tab refresh delay."
+    },
+    {
+      "name" : "HOP_LOG_TAB_REFRESH_PERIOD",
+      "value" : "1000",
+      "description" : "The hop log tab refresh period."
+    },
+    {
+      "name" : "HOP_BINARY_FIELDS_AVOID_HEX_PREVIEW",
+      "value" : "false",
+      "description" : "Display the original content of binary fields during preview, not its hexadecimal value."
+    },
+    {
+      "name" : "HOP_TABLE_VIEW_EXTRA_COLUMN_MARGIN",
+      "value" : "0",
+      "description" : "If for some reason the table columns are a bit too narrow, you can give it a bit of extra with manually. (in pixels)"
+    },
+    {
+      "name" : "HOP_QUERY_PREVIEW_TIMEOUT",
+      "value" : "20",
+      "description" : "Default JDBC statement query timeout in seconds for database query preview (0 = unset)."
+    },
+    {
+      "name" : "HOP_USE_NATIVE_FILE_DIALOG",
+      "value" : "N",
+      "description" : "Set this value to 'Y' if you want to use the system file open/save dialog when browsing files."
+    },
+    {
+      "name" : "HOP_DATABASE_CONNECTION_TIMEOUT",
+      "value" : "30",
+      "description" : "Default login/connection timeout in seconds when opening a JDBC database connection (DriverManager.setLoginTimeout). Defaults to 30; set to 0 to impose no timeout. Advisory: some JDBC drivers ignore it."
+    },
+    {
+      "name" : "HOP_DATABASE_SOCKET_TIMEOUT",
+      "value" : "0",
+      "description" : "Default network/socket timeout in seconds applied to a JDBC connection after it is opened (Connection.setNetworkTimeout). 0 (default) means no timeout is imposed. WARNING: when set, any single query/read running longer than this is aborted - use a value large enough for your longest-running SQL. Unsupported drivers are ignored."
+    },
+    {
+      "name" : "XML_ALLOW_DOCTYPE_DECL",
+      "value" : "N",
+      "description" : "A variable allow or disallow doctype declarations in XML"
+    },
+    {
+      "name" : "HOP_LOG_SIZE_LIMIT",
+      "value" : "0",
+      "description" : "The log size limit for all pipelines and workflows that don't have the \"log size limit\" property set in their respective properties."
+    },
+    {
+      "name" : "HOP_SERVER_DETECTION_TIMER",
+      "value" : "",
+      "description" : "The name of the variable that defines the timer used for detecting server nodes"
+    },
+    {
+      "name" : "HOP_EMPTY_STRING_DIFFERS_FROM_NULL",
+      "value" : "N",
+      "description" : "NULL vs Empty String. If this setting is set to 'Y', an empty string and null are different. Otherwise they are not"
+    },
+    {
+      "name" : "HOP_LENIENT_STRING_TO_NUMBER_CONVERSION",
+      "value" : "N",
+      "description" : "System wide flag to allow lenient string to number conversion for backward compatibility. If this setting is set to 'Y', an string starting with digits will be converted successfully into a number. (example: 192.168.1.1 will be converted into 192 or 192.168 or 192168 depending on the decimal and grouping symbol). The default (N) will be to throw an error if non-numeric symbols are found in the string."
+    },
+    {
+      "name" : "HOP_SYSTEM_HOSTNAME",
+      "value" : "",
+      "description" : "You can use this variable to speed up hostname lookup. Hostname lookup is performed by Hop so that it is capable of logging the server on which a workflow or pipeline is executed."
+    },
+    {
+      "name" : "HOP_SERVER_OBJECT_TIMEOUT_MINUTES",
+      "value" : "1440",
+      "description" : "This project variable will set a time-out after which waiting, completed or stopped pipelines and workflows will be automatically cleaned up. The default value is 1440 (one day)."
+    },
+    {
+      "name" : "HOP_TRANSFORM_PERFORMANCE_SNAPSHOT_LIMIT",
+      "value" : "0",
+      "description" : "The maximum number of transform performance snapshots to keep in memory. Set to 0 to keep all snapshots indefinitely (default)"
+    },
+    {
+      "name" : "HOP_METRIC_DATA_VOLUME",
+      "value" : "N",
+      "description" : "Enable pipeline metric for data volume (bytes in) per transform. When Y or true, each transform tracks estimated bytes read on input."
+    },
+    {
+      "name" : "HOP_MAX_WORKFLOW_TRACKER_SIZE",
+      "value" : "5000",
+      "description" : "The maximum number of workflow trackers childrens to keep track of. Default value is 5000."
+    },
+    {
+      "name" : "HOP_MAX_ACTIONS_LOGGED",
+      "value" : "5000",
+      "description" : "The maximum number of action results kept in memory for logging purposes."
+    },
+    {
+      "name" : "HOP_PLUGIN_CLASSES",
+      "value" : "",
+      "description" : "A comma delimited list of classes to scan for plugin annotations"
+    },
+    {
+      "name" : "HOP_PIPELINE_ROWSET_SIZE",
+      "value" : "",
+      "description" : "Name of the environment variable that contains the size of the pipeline rowset size. This overwrites values that you set pipeline settings"
+    },
+    {
+      "name" : "HOP_PASSWORD_ENCODER_PLUGIN",
+      "value" : "Hop",
+      "description" : "Specifies the password encoder plugin to use by ID (Hop is the default)."
+    },
+    {
+      "name" : "HOP_AES_ENCODER_KEY",
+      "value" : "",
+      "description" : "Key used by the AES/AES2 password encoder plugins. Can also be set as a system property."
+    },
+    {
+      "name" : "HOP_AES_ENCODER_KEY_FILE",
+      "value" : "",
+      "description" : "Path to a file containing the AES/AES2 password encoder key. Used when HOP_AES_ENCODER_KEY is empty."
+    },
+    {
+      "name" : "HOP_ROWSET_GET_TIMEOUT",
+      "value" : "50",
+      "description" : "The name of the variable that optionally contains an alternative rowset get timeout (in ms). This only makes a difference for extremely short lived pipelines."
+    },
+    {
+      "name" : "HOP_ROWSET_PUT_TIMEOUT",
+      "value" : "50",
+      "description" : "The name of the variable that optionally contains an alternative rowset put timeout (in ms). This only makes a difference for extremely short lived pipelines."
+    },
+    {
+      "name" : "HOP_BATCHING_ROWSET",
+      "value" : "N",
+      "description" : "Set this variable to 'Y' if you want to test a more efficient batching row set."
+    },
+    {
+      "name" : "HOP_FILE_OUTPUT_MAX_STREAM_COUNT",
+      "value" : "1024",
+      "description" : "This project variable is used by the Text File Output transform. It defines the max number of simultaneously open files within the transform. The transform will close/reopen files as necessary to insure the max is not exceeded"
+    },
+    {
+      "name" : "HOP_FILE_OUTPUT_MAX_STREAM_LIFE",
+      "value" : "0",
+      "description" : "This project variable is used by the Text File Output transform. It defines the max number of milliseconds between flushes of files opened by the transform."
+    },
+    {
+      "name" : "HOP_DISABLE_CONSOLE_LOGGING",
+      "value" : "N",
+      "description" : "Set this variable to 'Y' to disable standard Hop logging to the console. (stdout)"
+    },
+    {
+      "name" : "HOP_DEFAULT_NUMBER_FORMAT",
+      "value" : "",
+      "description" : "The name of the variable containing an alternative default number format"
+    },
+    {
+      "name" : "HOP_DEFAULT_BIGNUMBER_FORMAT",
+      "value" : "",
+      "description" : "The name of the variable containing an alternative default bignumber format"
+    },
+    {
+      "name" : "HOP_DEFAULT_INTEGER_FORMAT",
+      "value" : "",
+      "description" : "The name of the variable containing an alternative default integer format"
+    },
+    {
+      "name" : "HOP_DEFAULT_DATE_FORMAT",
+      "value" : "",
+      "description" : "The name of the variable containing an alternative default date format"
+    },
+    {
+      "name" : "HOP_AGGREGATION_MIN_NULL_IS_VALUED",
+      "value" : "N",
+      "description" : "Set this variable to 'Y' to set the minimum to NULL if NULL is within an aggregate. Otherwise by default NULL is ignored by the MIN aggregate and MIN is set to the minimum value that is not NULL. See also the variable HOP_AGGREGATION_ALL_NULLS_ARE_ZERO."
+    },
+    {
+      "name" : "HOP_AGGREGATION_ALL_NULLS_ARE_ZERO",
+      "value" : "N",
+      "description" : "Set this variable to 'Y' to return 0 when all values within an aggregate are NULL. Otherwise by default a NULL is returned when all values are NULL."
+    },
+    {
+      "name" : "HOP_DEFAULT_TIMESTAMP_FORMAT",
+      "value" : "",
+      "description" : "The name of the variable containing an alternative default timestamp format"
+    },
+    {
+      "name" : "HOP_SPLIT_FIELDS_REMOVE_ENCLOSURE",
+      "value" : "N",
+      "description" : "Set this variable to 'N' to preserve enclosure symbol after splitting the string in the Split fields transform. Changing it to true will remove first and last enclosure symbol from the resulting string chunks."
+    },
+    {
+      "name" : "HOP_ALLOW_EMPTY_FIELD_NAMES_AND_TYPES",
+      "value" : "N",
+      "description" : "Set this variable to 'Y' to allow your pipeline to pass 'null' fields and/or empty types."
+    },
+    {
+      "name" : "HOP_GLOBAL_LOG_VARIABLES_CLEAR_ON_EXPORT",
+      "value" : "N",
+      "description" : "Set this variable to 'N' to preserve global log variables defined in pipeline / workflow Properties -> Log panel. Changing it to 'Y' will clear it when export pipeline / workflow."
+    },
+    {
+      "name" : "HOP_LOG_MARK_MAPPINGS",
+      "value" : "N",
+      "description" : "Set this variable to 'Y' to precede transform/action name in log lines with the complete path to the transform/action. Useful to perfectly identify where a problem happened in our process."
+    },
+    {
+      "name" : "HOP_SERVER_JETTY_ACCEPTORS",
+      "value" : "",
+      "description" : "A variable to configure jetty option: acceptors for Hop server"
+    },
+    {
+      "name" : "HOP_SERVER_JETTY_ACCEPT_QUEUE_SIZE",
+      "value" : "",
+      "description" : "A variable to configure jetty option: acceptQueueSize for Hop server"
+    },
+    {
+      "name" : "HOP_SERVER_JETTY_RES_MAX_IDLE_TIME",
+      "value" : "",
+      "description" : "A variable to configure jetty option: lowResourcesMaxIdleTime for Hop server"
+    },
+    {
+      "name" : "HOP_DEFAULT_SERVLET_ENCODING",
+      "value" : "",
+      "description" : "Defines the default encoding for servlets, leave it empty to use Java default encoding"
+    },
+    {
+      "name" : "HOP_SERVER_REFRESH_STATUS",
+      "value" : "",
+      "description" : "A variable to configure refresh for Hop server workflow/pipeline status page"
+    },
+    {
+      "name" : "HOP_MAX_TAB_LENGTH",
+      "value" : "",
+      "description" : "A variable to configure Tab size"
+    },
+    {
+      "name" : "HOP_ZIP_MIN_INFLATE_RATIO",
+      "value" : "",
+      "description" : "A variable to configure the minimum allowed ratio between de- and inflated bytes to detect a zipbomb"
+    },
+    {
+      "name" : "HOP_ZIP_MIN_INFLATE_RATIO_DEFAULT_STRING",
+      "value" : "",
+      "description" : ""
+    },
+    {
+      "name" : "HOP_ZIP_MAX_ENTRY_SIZE",
+      "value" : "",
+      "description" : "A variable to configure the maximum file size of a single zip entry"
+    },
+    {
+      "name" : "HOP_ZIP_MAX_ENTRY_SIZE_DEFAULT_STRING",
+      "value" : "",
+      "description" : ""
+    },
+    {
+      "name" : "HOP_ZIP_MAX_TEXT_SIZE",
+      "value" : "",
+      "description" : "A variable to configure the maximum number of characters of text that are extracted before an exception is thrown during extracting text from documents"
+    },
+    {
+      "name" : "HOP_ZIP_MAX_TEXT_SIZE_DEFAULT_STRING",
+      "value" : "",
+      "description" : ""
+    },
+    {
+      "name" : "HOP_LICENSE_HEADER_FILE",
+      "value" : "",
+      "description" : "This is the name of the variable which when set should contains the path to a file which will be included in the serialization of pipelines and workflows"
+    },
+    {
+      "name" : "HOP_JSON_INPUT_INCLUDE_NULLS",
+      "value" : "Y",
+      "description" : "Name of the variable to set so that Nulls are considered while parsing JSON files. If HOP_JSON_INPUT_INCLUDE_NULLS is \"Y\" then nulls will be included (default behavior) otherwise they will not be included"
+    },
+    {
+      "name" : "HOP_DEFAULT_BUFFER_POLLING_WAITTIME",
+      "value" : "20",
+      "description" : "This is the default polling frequency for the transforms input buffer (in ms)"
+    },
+    {
+      "name" : "HOP_SERVER_RETRIES",
+      "value" : "0",
+      "description" : "A variable to configure the number of retries for Hop server to send data"
+    },
+    {
+      "name" : "HOP_SERVER_RETRY_BACKOFF_INCREMENTS",
+      "value" : "1000",
+      "description" : "A variable to configure the time in milliseconds to wait before retrying to send data"
+    },
+    {
+      "name" : "HOP_LINEAGE_ENABLED",
+      "value" : "N",
+      "description" : "Set to Y to enable the lineage hub (async dispatch of lineage events to registered sinks)."
+    },
+    {
+      "name" : "HOP_LINEAGE_QUEUE_CAPACITY",
+      "value" : "10000",
+      "description" : "Maximum number of lineage events queued in memory before new events are dropped."
+    },
+    {
+      "name" : "HOP_LINEAGE_BATCH_MAX",
+      "value" : "100",
+      "description" : "Maximum lineage events per batch delivered to sinks."
+    },
+    {
+      "name" : "HOP_LINEAGE_BATCH_LINGER_MS",
+      "value" : "250",
+      "description" : "Maximum time in milliseconds to wait for more lineage events before dispatching a partial batch."
+    },
+    {
+      "name" : "HOP_LINEAGE_SINK_IDS",
+      "value" : "",
+      "description" : "Comma-separated lineage sink plugin ids to enable; leave empty to register all discovered sinks."
+    },
+    {
+      "name" : "HOP_S3_VFS_PART_SIZE",
+      "value" : "",
+      "description" : "Default part size for new files on S3, Acceptable are 5MB as a minimum and 5GB as a maximum value. (Default: 5MB)"
+    }
+  ],
+  "googleCloud" : {
+    "serviceAccountKeyFile" : null,
+    "scanFoldersForLastModifDate" : false,
+    "maxAttempts" : "6",
+    "initialRetryDelay" : "1",
+    "retryDelayMultiplier" : "2.0",
+    "maxRetryDelay" : "32",
+    "totalTimeout" : "50",
+    "initialRpcTimeout" : "50",
+    "rpcTimeoutMultiplier" : "1.0",
+    "maxRpcTimeout" : "50",
+    "connectionTimeout" : "20",
+    "readTimeout" : "20",
+    "cacheTtlSeconds" : "5"
+  },
+  "search" : {
+    "minContentQueryLength" : "3",
+    "maxResults" : "500",
+    "maxMatchesPerFile" : "20",
+    "maxTextFileSizeMb" : "1",
+    "includeProjectTextFiles" : true,
+    "searchAsYouType" : true,
+    "debounceMs" : "300"
+  },
+  "LocaleDefault" : "en_US",
+  "guiProperties" : {
+    "FontFixedSize" : "9",
+    "FontDefaultSize" : "9",
+    "MaxUndo" : "100",
+    "FontGraphSize" : "9",
+    "IconSize" : "32",
+    "FontNoteSize" : "9",
+    "FontNoteStyle" : "0",
+    "FontGraphName" : "Segoe UI",
+    "FontFixedStyle" : "0",
+    "FontDefaultName" : "Segoe UI",
+    "FontDefaultStyle" : "0",
+    "FontNoteName" : "Segoe UI",
+    "FontFixedName" : "Consolas",
+    "WorkflowDialogStyle" : "RESIZE,MAX,MIN",
+    "FontGraphStyle" : "0",
+    "LineWidth" : "1",
+    "ContextDialogShowCategories" : "Y",
+    "ContextDialogFixedWidth" : "Y",
+    "GraphExtraViewVerticalOrientation" : "Y",
+    "AutoSave" : "N"
+  },
+  "googleDrive" : {
+    "credentialsFile" : null,
+    "tokensFolder" : null
+  },
+  "projectsConfig" : {
+    "enabled" : true,
+    "projectMandatory" : true,
+    "environmentMandatory" : false,
+    "environmentsForActiveProject" : false,
+    "sortByNameLastUsedProjects" : false,
+    "clearingDbCacheWhenSwitching" : true,
+    "defaultProject" : "default",
+    "defaultEnvironment" : null,
+    "standardParentProject" : "default",
+    "standardProjectsFolder" : null,
+    "defaultProjectConfigFile" : "project-config.json",
+    "projectConfigurations" : [
+      {
+        "projectName" : "default",
+        "projectHome" : "config/projects/default",
+        "configFilename" : "project-config.json",
+        "readOnly" : false,
+        "group" : null,
+        "tags" : [ ],
+        "tagsAsDisplayString" : ""
+      },
+      {
+        "projectName" : "samples",
+        "projectHome" : "config/projects/samples",
+        "configFilename" : "project-config.json",
+        "readOnly" : false,
+        "group" : null,
+        "tags" : [ ],
+        "tagsAsDisplayString" : ""
+      },
+      {
+        "projectName" : "kms_hop_proj",
+        "projectHome" : "C:\\TMP\\apache-hop-client-2.19.0\\hop\\!kms\\!myprojects\\kms_hop_proj",
+        "configFilename" : "project-config.json",
+        "readOnly" : false,
+        "group" : null,
+        "tags" : [ ],
+        "tagsAsDisplayString" : ""
+      },
+      {
+        "projectName" : "Denorm_ODS",
+        "projectHome" : "C:\\TMP\\apache-hop-client-2.19.0\\hop\\!kms\\!myprojects\\Denorm_ODS",
+        "configFilename" : "project-config.json",
+        "readOnly" : false,
+        "group" : null,
+        "tags" : [ ],
+        "tagsAsDisplayString" : ""
+      }
+    ],
+    "lifecycleEnvironments" : [
+      {
+        "name" : "kms2026",
+        "purpose" : "",
+        "projectName" : "kms2026",
+        "canvasText" : "",
+        "configurationFiles" : [ ],
+        "attributesMap" : {
+          "marketplace" : {
+            "strict" : "false",
+            "autoApply" : "false",
+            "onEnable" : "off"
+          },
+          "resources" : {
+            "onEnable" : "off"
+          }
+        }
+      },
+      {
+        "name" : "kms2026projfolder_",
+        "purpose" : "",
+        "projectName" : "kms2026projfolder_",
+        "canvasText" : "",
+        "configurationFiles" : [ ],
+        "attributesMap" : {
+          "marketplace" : {
+            "strict" : "false",
+            "autoApply" : "false",
+            "onEnable" : "off"
+          },
+          "resources" : {
+            "onEnable" : "off"
+          }
+        }
+      },
+      {
+        "name" : "kms_hop_proj",
+        "purpose" : "",
+        "projectName" : "kms_hop_proj",
+        "canvasText" : "",
+        "configurationFiles" : [ ],
+        "attributesMap" : {
+          "marketplace" : {
+            "strict" : "false",
+            "autoApply" : "false",
+            "onEnable" : "off"
+          },
+          "resources" : {
+            "onEnable" : "off"
+          }
+        }
+      },
+      {
+        "name" : "Denorm_ODS",
+        "purpose" : "",
+        "projectName" : "Denorm_ODS",
+        "canvasText" : "",
+        "configurationFiles" : [ ],
+        "attributesMap" : {
+          "marketplace" : {
+            "strict" : "false",
+            "autoApply" : "false",
+            "onEnable" : "off"
+          },
+          "resources" : {
+            "onEnable" : "off"
+          }
+        }
+      }
+    ],
+    "projectLifecycles" : [ ]
+  },
+  "explorer-perspective" : {
+    "lazyLoadingDepth" : "0",
+    "fileLoadingMaxSize" : "16",
+    "fileExplorerVisibleByDefault" : true,
+    "openingHelpFiles" : false,
+    "activeFileSelection" : true
+  },
+  "azure" : {
+    "account" : null,
+    "key" : null,
+    "emulatorUrl" : null
+  },
+  "gitConfig" : {
+    "enabled" : true,
+    "searchingParentFolders" : false,
+    "fetchAutomatic" : false,
+    "ignoringPositionInDiff" : true
+  },
+  "doNotShowWelcomeDialog" : false
+}
