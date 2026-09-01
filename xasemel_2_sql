@@ -1,1 +1,787 @@
 
+-- ========================================
+-- Создание схемы actuary
+-- ========================================
+CREATE SCHEMA IF NOT EXISTS actuary;
+
+-- ========================================
+-- 1. ОСНОВНЫЕ ТАБЛИЦЫ (аналог листов Excel)
+-- ========================================
+
+-- Таблица для полных данных (аналог листа "DataFull")
+-- Содержит все исходные данные с фильтрами
+CREATE TABLE actuary.glm_data_full (
+    "Отв_Пр" VARCHAR(20),            -- Тип страховщика: ОтвСтр/ПрСтр
+    "Тип страхователя" VARCHAR(10),  -- Тип страхователя: ФЛ/ЮЛ
+    "Тип договора" VARCHAR(20),      -- Тип договора: Первоначальный/Возобновлённый/ЕГП
+    "Месяц действия" INTEGER,        -- Номер месяца действия (от 1 до 13)
+    "Месяц календарный" INTEGER,     -- Номер календарного месяца (от 1 до 12)
+    "MCL" NUMERIC,                   -- Убыток (Mean Claim Loss)
+    "Exp" NUMERIC                    -- Экспозиция (объем)
+);
+
+-- Таблица для данных после фильтрации (аналог листа "Data")
+-- Содержит данные для одного конкретного расчета
+CREATE TABLE actuary.glm_data (
+    "Месяц действия" INTEGER,        -- Номер месяца действия
+    "Месяц календарный" INTEGER,     -- Номер календарного месяца
+    "MCL" NUMERIC,                   -- Убыток
+    "Exp" NUMERIC,                   -- Экспозиция
+    PRIMARY KEY ("Месяц действия", "Месяц календарный")
+);
+
+-- Таблица для индексов (аналог листа "Ind")
+-- Хранит результаты расчета Ind1 и Ind2
+CREATE TABLE actuary.glm_ind (
+    "Месяц действия" INTEGER,        -- Номер месяца действия
+    "Ind 1" NUMERIC,                 -- Индекс по месяцам действия
+    "Месяц календарный" INTEGER,     -- Номер календарного месяца
+    "Ind 2" NUMERIC,                 -- Индекс по календарным месяцам
+    "N1" INTEGER,                    -- Количество групп по месяцам действия
+    "N2" INTEGER                     -- Количество групп по календарным месяцам
+);
+
+-- Таблица для результатов (аналог листа "Result")
+-- Хранит коэффициенты K1, K2 и базовую частоту
+CREATE TABLE actuary.glm_result (
+    "Месяц действия" INTEGER,        -- Номер месяца действия
+    "K1" NUMERIC,                    -- Коэффициент по месяцам действия
+    "Месяц календарный" INTEGER,     -- Номер календарного месяца
+    "K2" NUMERIC,                    -- Коэффициент по календарным месяцам
+    "Базовая частота" NUMERIC DEFAULT 1  -- Базовая частота (всегда 1)
+);
+
+-- Таблица для сводных результатов (аналог листа "ResultFull")
+-- Хранит все результаты расчетов по всем комбинациям фильтров
+CREATE TABLE actuary.glm_result_full (
+    "Группа" VARCHAR(50),            -- Группа: Ответственный страховщик / Прямой страховщик
+    "Подгруппа" VARCHAR(50),         -- Подгруппа: ФЛ, Первоначальный и т.д.
+    "Месяц действия" INTEGER,        -- Номер месяца действия
+    "K1" NUMERIC,                    -- Коэффициент K1
+    "Месяц календарный" INTEGER,     -- Номер календарного месяца
+    "K2" NUMERIC,                    -- Коэффициент K2
+    "Тип страховщика" VARCHAR(10),   -- ОтвСтр / ПрСтр
+    "Тип страхователя" VARCHAR(10),  -- ФЛ / ЮЛ
+    "Тип договора" VARCHAR(20)       -- Первоначальный / Возобновлённый / ЕГП
+);
+
+-- ========================================
+-- 2. ФУНКЦИЯ РАСЧЕТА ИНДЕКСОВ (аналог Sub Calc_Ind)
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_ind()
+RETURNS VOID AS $$
+DECLARE
+    v_n1 INTEGER;  -- Количество групп по месяцам действия
+    v_n2 INTEGER;  -- Количество групп по календарным месяцам
+    v_i INTEGER;   -- Счетчик для месяцев действия
+    v_j INTEGER;   -- Счетчик для календарных месяцев
+    v_sum_v NUMERIC;   -- Сумма экспозиции
+    v_sum_vz NUMERIC;  -- Сумма V * Z
+    v_expected_z NUMERIC; -- Ожидаемое Z
+BEGIN
+    -- ========================================
+    -- Шаг 1: Получаем размерности
+    -- ========================================
+    
+    -- Количество уникальных месяцев действия
+    SELECT COUNT(DISTINCT "Месяц действия") INTO v_n1 
+    FROM actuary.glm_data;
+    
+    -- Количество уникальных календарных месяцев
+    SELECT COUNT(DISTINCT "Месяц календарный") INTO v_n2 
+    FROM actuary.glm_data;
+    
+    -- Сохраняем N1 и N2 в таблицу Ind
+    INSERT INTO actuary.glm_ind ("N1", "N2") 
+    VALUES (v_n1, v_n2);
+    
+    -- ========================================
+    -- Шаг 2: Создаем временную матрицу с нормированным убытком Z = S / V
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s,
+        CASE 
+            WHEN "Exp" > 0 THEN "MCL" / "Exp" 
+            ELSE 0 
+        END AS z
+    FROM actuary.glm_data;
+    
+    -- Создаем индексы для ускорения запросов
+    CREATE INDEX idx_temp_matrix_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_temp_matrix_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- ========================================
+    -- Шаг 3: Расчет Ind1 (индексы по месяцам действия)
+    -- ========================================
+    
+    -- Временная таблица для результатов Ind1
+    DROP TABLE IF EXISTS temp_ind1;
+    CREATE TEMP TABLE temp_ind1 (
+        "Месяц действия" INTEGER,
+        "Ind1" NUMERIC
+    );
+    
+    -- Цикл по каждому месяцу действия
+    FOR v_i IN 1..v_n1 LOOP
+        -- 3.1: Вычисляем V_i_plus = сумма V по строке (для данного месяца действия)
+        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
+        FROM temp_matrix
+        WHERE "Месяц действия" = v_i;
+        
+        -- 3.2: Вычисляем Z_i_plus = (сумма V * Z) / (сумма V) по строке
+        -- Это средневзвешенное Z для данного месяца действия
+        SELECT 
+            CASE 
+                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
+                ELSE 0
+            END INTO v_sum_vz
+        FROM temp_matrix
+        WHERE "Месяц действия" = v_i;
+        
+        -- 3.3: Вычисляем Z_i = сумма(V * Z_plus_i) / сумма(V)
+        -- где Z_plus_i - средневзвешенное Z по столбцам (календарным месяцам)
+        WITH col_avg AS (
+            -- Для каждого календарного месяца вычисляем средневзвешенное Z по столбцу
+            SELECT 
+                "Месяц календарный",
+                SUM(v) AS v_sum,
+                CASE 
+                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
+                    ELSE 0
+                END AS z_plus_i
+            FROM temp_matrix
+            GROUP BY "Месяц календарный"
+        )
+        SELECT 
+            CASE 
+                WHEN v_sum_v > 0 THEN SUM(tm.v * ca.z_plus_i) / v_sum_v
+                ELSE 0
+            END INTO v_expected_z
+        FROM temp_matrix tm
+        JOIN col_avg ca ON tm."Месяц календарный" = ca."Месяц календарный"
+        WHERE tm."Месяц действия" = v_i;
+        
+        -- 3.4: Вычисляем Ind1 = Z_i_plus / Z_i
+        INSERT INTO temp_ind1 ("Месяц действия", "Ind1")
+        VALUES (
+            v_i,
+            CASE 
+                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
+                ELSE 0
+            END
+        );
+    END LOOP;
+    
+    -- Сохраняем результаты Ind1 в таблицу
+    INSERT INTO actuary.glm_ind ("Месяц действия", "Ind 1")
+    SELECT "Месяц действия", "Ind1"
+    FROM temp_ind1
+    ORDER BY "Месяц действия";
+    
+    -- ========================================
+    -- Шаг 4: Расчет Ind2 (индексы по календарным месяцам)
+    -- ========================================
+    
+    -- Временная таблица для результатов Ind2
+    DROP TABLE IF EXISTS temp_ind2;
+    CREATE TEMP TABLE temp_ind2 (
+        "Месяц календарный" INTEGER,
+        "Ind2" NUMERIC
+    );
+    
+    -- Цикл по каждому календарному месяцу
+    FOR v_j IN 1..v_n2 LOOP
+        -- 4.1: Вычисляем V_i_plus = сумма V по столбцу (для данного календарного месяца)
+        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
+        FROM temp_matrix
+        WHERE "Месяц календарный" = v_j;
+        
+        -- 4.2: Вычисляем Z_i_plus = (сумма V * Z) / (сумма V) по столбцу
+        SELECT 
+            CASE 
+                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
+                ELSE 0
+            END INTO v_sum_vz
+        FROM temp_matrix
+        WHERE "Месяц календарный" = v_j;
+        
+        -- 4.3: Вычисляем Z_i = сумма(V * Z_plus_i) / сумма(V)
+        -- где Z_plus_i - средневзвешенное Z по строкам (месяцам действия)
+        WITH row_avg AS (
+            -- Для каждого месяца действия вычисляем средневзвешенное Z по строке
+            SELECT 
+                "Месяц действия",
+                SUM(v) AS v_sum,
+                CASE 
+                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
+                    ELSE 0
+                END AS z_plus_i
+            FROM temp_matrix
+            GROUP BY "Месяц действия"
+        )
+        SELECT 
+            CASE 
+                WHEN v_sum_v > 0 THEN SUM(tm.v * ra.z_plus_i) / v_sum_v
+                ELSE 0
+            END INTO v_expected_z
+        FROM temp_matrix tm
+        JOIN row_avg ra ON tm."Месяц действия" = ra."Месяц действия"
+        WHERE tm."Месяц календарный" = v_j;
+        
+        -- 4.4: Вычисляем Ind2 = Z_i_plus / Z_i
+        INSERT INTO temp_ind2 ("Месяц календарный", "Ind2")
+        VALUES (
+            v_j,
+            CASE 
+                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
+                ELSE 0
+            END
+        );
+    END LOOP;
+    
+    -- Сохраняем результаты Ind2 в таблицу
+    INSERT INTO actuary.glm_ind ("Месяц календарный", "Ind 2")
+    SELECT "Месяц календарный", "Ind2"
+    FROM temp_ind2
+    ORDER BY "Месяц календарный";
+    
+    -- ========================================
+    -- Шаг 5: Очистка временных таблиц
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    DROP TABLE IF EXISTS temp_ind1;
+    DROP TABLE IF EXISTS temp_ind2;
+    
+    RAISE NOTICE 'Расчет индексов завершен. N1=%, N2=%', v_n1, v_n2;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 3. ФУНКЦИЯ НОРМЫ (аналог Function norma)
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_norma(
+    p_k1 NUMERIC[],    -- Массив значений K1
+    p_temp_k1 NUMERIC[], -- Массив предыдущих значений K1
+    p_k2 NUMERIC[],    -- Массив значений K2
+    p_temp_k2 NUMERIC[], -- Массив предыдущих значений K2
+    p_n1 INTEGER,      -- Размерность K1
+    p_n2 INTEGER       -- Размерность K2
+)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_s1 NUMERIC := 0;  -- Сумма квадратов разностей для K1
+    v_s2 NUMERIC := 0;  -- Сумма квадратов разностей для K2
+    v_i INTEGER;        -- Счетчик
+BEGIN
+    -- Вычисляем сумму квадратов разностей для K1
+    FOR v_i IN 1..p_n1 LOOP
+        v_s1 := v_s1 + (p_k1[v_i] - p_temp_k1[v_i]) ^ 2;
+    END LOOP;
+    
+    -- Вычисляем сумму квадратов разностей для K2
+    FOR v_i IN 1..p_n2 LOOP
+        v_s2 := v_s2 + (p_k2[v_i] - p_temp_k2[v_i]) ^ 2;
+    END LOOP;
+    
+    -- Возвращаем корень из суммы
+    RETURN SQRT(v_s1 + v_s2);
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 4. ФУНКЦИЯ ОСНОВНОГО РАСЧЕТА (аналог Sub Расчет)
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
+RETURNS VOID AS $$
+DECLARE
+    v_n1 INTEGER;            -- Количество групп по месяцам действия
+    v_n2 INTEGER;            -- Количество групп по календарным месяцам
+    v_eps NUMERIC := 0.000001; -- Допустимая ошибка (критерий остановки)
+    v_dist NUMERIC := 1;     -- Текущая ошибка
+    v_iter INTEGER := 0;     -- Счетчик итераций
+    v_max_iter INTEGER := 10000; -- Максимальное число итераций
+    v_i INTEGER;             -- Счетчик для месяцев действия
+    v_j INTEGER;             -- Счетчик для календарных месяцев
+    v_s1 NUMERIC;            -- Сумма S / K2
+    v_s2 NUMERIC;            -- Сумма V
+    v_k1_prev NUMERIC[];     -- Массив предыдущих значений K1
+    v_k2_prev NUMERIC[];     -- Массив предыдущих значений K2
+    v_k1_curr NUMERIC[];     -- Массив текущих значений K1
+    v_k2_curr NUMERIC[];     -- Массив текущих значений K2
+    v_action_months INTEGER[]; -- Массив уникальных месяцев действия
+    v_calendar_months INTEGER[]; -- Массив уникальных календарных месяцев
+BEGIN
+    -- ========================================
+    -- Шаг 1: Получаем размерности
+    -- ========================================
+    
+    -- Получаем уникальные месяцы действия
+    SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
+    INTO v_action_months
+    FROM actuary.glm_data;
+    
+    -- Получаем уникальные календарные месяцы
+    SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
+    INTO v_calendar_months
+    FROM actuary.glm_data;
+    
+    v_n1 := array_length(v_action_months, 1);
+    v_n2 := array_length(v_calendar_months, 1);
+    
+    -- ========================================
+    -- Шаг 2: Создаем временную матрицу данных
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s
+    FROM actuary.glm_data;
+    
+    -- Создаем индексы для ускорения
+    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- ========================================
+    -- Шаг 3: Инициализация массивов
+    -- ========================================
+    
+    -- Начальные значения K1 = 1
+    v_k1_prev := array_fill(1, ARRAY[v_n1]);
+    v_k1_curr := array_fill(1, ARRAY[v_n1]);
+    
+    -- Начальные значения K2 = 1
+    v_k2_prev := array_fill(1, ARRAY[v_n2]);
+    v_k2_curr := array_fill(1, ARRAY[v_n2]);
+    
+    -- ========================================
+    -- Шаг 4: Итеративный алгоритм максимального правдоподобия
+    -- ========================================
+    
+    RAISE NOTICE 'Начинаем итеративный расчет...';
+    
+    WHILE v_dist > v_eps AND v_iter < v_max_iter LOOP
+        v_iter := v_iter + 1;
+        
+        -- 4.1: Обновляем K1 (по месяцам действия)
+        FOR v_i IN 1..v_n1 LOOP
+            v_s1 := 0;
+            v_s2 := 0;
+            
+            -- Вычисляем суммы для данного месяца действия
+            SELECT 
+                COALESCE(SUM(s / v_k2_curr[j]), 0),
+                COALESCE(SUM(v), 0)
+            INTO v_s1, v_s2
+            FROM temp_matrix tm
+            WHERE tm."Месяц действия" = v_action_months[v_i];
+            
+            -- K1 = сумма(S/K2) / сумма(V)
+            IF v_s2 > 0 THEN
+                v_k1_curr[v_i] := v_s1 / v_s2;
+            ELSE
+                v_k1_curr[v_i] := 0;
+            END IF;
+        END LOOP;
+        
+        -- 4.2: Обновляем K2 (по календарным месяцам)
+        FOR v_j IN 1..v_n2 LOOP
+            v_s1 := 0;
+            v_s2 := 0;
+            
+            -- Вычисляем суммы для данного календарного месяца
+            SELECT 
+                COALESCE(SUM(s / v_k1_curr[i]), 0),
+                COALESCE(SUM(v), 0)
+            INTO v_s1, v_s2
+            FROM temp_matrix tm
+            WHERE tm."Месяц календарный" = v_calendar_months[v_j];
+            
+            -- K2 = сумма(S/K1) / сумма(V)
+            IF v_s2 > 0 THEN
+                v_k2_curr[v_j] := v_s1 / v_s2;
+            ELSE
+                v_k2_curr[v_j] := 0;
+            END IF;
+        END LOOP;
+        
+        -- 4.3: Вычисляем норму ошибки
+        v_dist := actuary.glm_norma(
+            v_k1_curr, v_k1_prev,
+            v_k2_curr, v_k2_prev,
+            v_n1, v_n2
+        );
+        
+        -- 4.4: Обновляем предыдущие значения
+        v_k1_prev := v_k1_curr;
+        v_k2_prev := v_k2_curr;
+        
+        -- Выводим прогресс каждые 100 итераций
+        IF v_iter % 100 = 0 THEN
+            RAISE NOTICE 'Итерация %, ошибка: %', v_iter, v_dist;
+        END IF;
+    END LOOP;
+    
+    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', v_iter, v_dist;
+    
+    -- ========================================
+    -- Шаг 5: Сохраняем результаты
+    -- ========================================
+    
+    -- Сохраняем K1 по месяцам действия
+    FOR v_i IN 1..v_n1 LOOP
+        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
+        VALUES (v_action_months[v_i], v_k1_curr[v_i]);
+    END LOOP;
+    
+    -- Сохраняем K2 по календарным месяцам
+    FOR v_j IN 1..v_n2 LOOP
+        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
+        VALUES (v_calendar_months[v_j], v_k2_curr[v_j]);
+    END LOOP;
+    
+    -- Устанавливаем базовую частоту = 1
+    UPDATE actuary.glm_result SET "Базовая частота" = 1;
+    
+    -- ========================================
+    -- Шаг 6: Очистка временных таблиц
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    
+    RAISE NOTICE 'Результаты сохранены.';
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 5. ФУНКЦИЯ ДЛЯ МАССОВОГО РАСЧЕТА (аналог Sub Расчет_по_всем)
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_all()
+RETURNS VOID AS $$
+DECLARE
+    -- Массивы для хранения комбинаций фильтров
+    v_insurers VARCHAR[] := ARRAY['ОтвСтр', 'ПрСтр'];
+    v_clients VARCHAR[] := ARRAY['ФЛ', 'ЮЛ'];
+    v_contracts VARCHAR[] := ARRAY['Первоначальный', 'Возобновлённый', 'ЕГП'];
+    v_i INTEGER;
+    v_j INTEGER;
+    v_k INTEGER;
+    v_group VARCHAR(50);
+    v_subgroup VARCHAR(50);
+    v_insurer_type VARCHAR(10);
+    v_client_type VARCHAR(10);
+    v_contract_type VARCHAR(20);
+    v_count INTEGER := 0;
+    v_start_time TIMESTAMP;
+    v_end_time TIMESTAMP;
+BEGIN
+    v_start_time := clock_timestamp();
+    
+    -- Очищаем таблицу результатов
+    TRUNCATE TABLE actuary.glm_result_full;
+    
+    RAISE NOTICE 'Начинаем массовый расчет...';
+    RAISE NOTICE 'Всего комбинаций: %', array_length(v_insurers, 1) * array_length(v_clients, 1) * array_length(v_contracts, 1);
+    
+    -- ========================================
+    -- Цикл по типам страховщиков (ОтвСтр / ПрСтр)
+    -- ========================================
+    
+    FOR v_i IN 1..array_length(v_insurers, 1) LOOP
+        v_insurer_type := v_insurers[v_i];
+        
+        -- Определяем название группы для ResultFull
+        IF v_insurer_type = 'ОтвСтр' THEN
+            v_group := 'Ответственный страховщик';
+        ELSE
+            v_group := 'Прямой страховщик';
+        END IF;
+        
+        -- ========================================
+        -- Цикл по типам страхователей (ФЛ / ЮЛ)
+        -- ========================================
+        
+        FOR v_j IN 1..array_length(v_clients, 1) LOOP
+            v_client_type := v_clients[v_j];
+            
+            -- ========================================
+            -- Цикл по типам договоров
+            -- ========================================
+            
+            FOR v_k IN 1..array_length(v_contracts, 1) LOOP
+                v_contract_type := v_contracts[v_k];
+                
+                -- Формируем название подгруппы
+                v_subgroup := v_client_type || ', ' || v_contract_type;
+                
+                v_count := v_count + 1;
+                RAISE NOTICE '--- Расчет %: % / % / % ---', v_count, v_insurer_type, v_client_type, v_contract_type;
+                
+                -- ========================================
+                -- Шаг 1: Копируем отфильтрованные данные в glm_data
+                -- ========================================
+                
+                -- Очищаем таблицу данных
+                TRUNCATE TABLE actuary.glm_data;
+                
+                -- Копируем данные с фильтрацией
+                INSERT INTO actuary.glm_data ("Месяц действия", "Месяц календарный", "MCL", "Exp")
+                SELECT 
+                    "Месяц действия",
+                    "Месяц календарный",
+                    "MCL",
+                    "Exp"
+                FROM actuary.glm_data_full
+                WHERE "Отв_Пр" = v_insurer_type
+                  AND "Тип страхователя" = v_client_type
+                  AND "Тип договора" = v_contract_type
+                ORDER BY "Месяц действия", "Месяц календарный";
+                
+                -- Проверяем, есть ли данные
+                IF NOT EXISTS (SELECT 1 FROM actuary.glm_data) THEN
+                    RAISE NOTICE 'Нет данных для комбинации %, пропускаем...', v_subgroup;
+                    CONTINUE;
+                END IF;
+                
+                -- ========================================
+                -- Шаг 2: Расчет индексов
+                -- ========================================
+                
+                RAISE NOTICE '  Расчет индексов...';
+                TRUNCATE TABLE actuary.glm_ind;
+                PERFORM actuary.glm_calc_ind();
+                
+                -- ========================================
+                -- Шаг 3: Основной расчет
+                -- ========================================
+                
+                RAISE NOTICE '  Основной расчет...';
+                TRUNCATE TABLE actuary.glm_result;
+                PERFORM actuary.glm_calc_main();
+                
+                -- ========================================
+                -- Шаг 4: Сохранение результатов в ResultFull
+                -- ========================================
+                
+                RAISE NOTICE '  Сохранение результатов...';
+                
+                -- Сохраняем K1
+                INSERT INTO actuary.glm_result_full (
+                    "Группа", 
+                    "Подгруппа", 
+                    "Месяц действия", 
+                    "K1",
+                    "Тип страховщика",
+                    "Тип страхователя",
+                    "Тип договора"
+                )
+                SELECT 
+                    v_group,
+                    v_subgroup,
+                    r."Месяц действия",
+                    r."K1",
+                    v_insurer_type,
+                    v_client_type,
+                    v_contract_type
+                FROM actuary.glm_result r
+                WHERE r."Месяц действия" IS NOT NULL
+                ORDER BY r."Месяц действия";
+                
+                -- Сохраняем K2
+                INSERT INTO actuary.glm_result_full (
+                    "Группа", 
+                    "Подгруппа", 
+                    "Месяц календарный", 
+                    "K2",
+                    "Тип страховщика",
+                    "Тип страхователя",
+                    "Тип договора"
+                )
+                SELECT 
+                    v_group,
+                    v_subgroup,
+                    r."Месяц календарный",
+                    r."K2",
+                    v_insurer_type,
+                    v_client_type,
+                    v_contract_type
+                FROM actuary.glm_result r
+                WHERE r."Месяц календарный" IS NOT NULL
+                ORDER BY r."Месяц календарный";
+                
+                RAISE NOTICE '  Расчет для % завершен.', v_subgroup;
+            END LOOP;
+        END LOOP;
+    END LOOP;
+    
+    v_end_time := clock_timestamp();
+    
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Все расчеты завершены.';
+    RAISE NOTICE 'Обработано комбинаций: %', v_count;
+    RAISE NOTICE 'Время выполнения: %', v_end_time - v_start_time;
+    RAISE NOTICE '========================================';
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 6. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ИЗ DataFull
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_load_data_from_full()
+RETURNS VOID AS $$
+BEGIN
+    -- Очищаем таблицу полных данных
+    TRUNCATE TABLE actuary.glm_data_full;
+    
+    -- Загружаем данные из DataFull
+    -- Здесь нужно использовать COPY или INSERT
+    -- Пример для загрузки из CSV:
+    -- COPY actuary.glm_data_full ("Отв_Пр", "Тип страхователя", "Тип договора", 
+    --                             "Месяц действия", "Месяц календарный", "MCL", "Exp")
+    -- FROM '/path/to/data.csv' DELIMITER ',' CSV HEADER;
+    
+    RAISE NOTICE 'Данные загружены в glm_data_full';
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 7. ФУНКЦИЯ ДЛЯ ОЧИСТКИ ВСЕХ ДАННЫХ
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_cleanup()
+RETURNS VOID AS $$
+BEGIN
+    TRUNCATE TABLE actuary.glm_data;
+    TRUNCATE TABLE actuary.glm_ind;
+    TRUNCATE TABLE actuary.glm_result;
+    TRUNCATE TABLE actuary.glm_result_full;
+    -- Не очищаем glm_data_full, так как это исходные данные
+    
+    -- Удаляем временные таблицы, если они существуют
+    DROP TABLE IF EXISTS temp_matrix;
+    DROP TABLE IF EXISTS temp_ind1;
+    DROP TABLE IF EXISTS temp_ind2;
+    
+    RAISE NOTICE 'Все временные таблицы очищены';
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 8. ГЛАВНАЯ ФУНКЦИЯ ЗАПУСКА
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_run_all()
+RETURNS TEXT AS $$
+DECLARE
+    v_start_time TIMESTAMP;
+    v_end_time TIMESTAMP;
+    v_duration INTERVAL;
+BEGIN
+    v_start_time := clock_timestamp();
+    
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Начало расчетов: %', v_start_time;
+    RAISE NOTICE '========================================';
+    
+    -- Выполняем все расчеты
+    PERFORM actuary.glm_calc_all();
+    
+    v_end_time := clock_timestamp();
+    v_duration := v_end_time - v_start_time;
+    
+    RAISE NOTICE '========================================';
+    RAISE NOTICE 'Расчеты завершены: %', v_end_time;
+    RAISE NOTICE 'Общее время выполнения: %', v_duration;
+    RAISE NOTICE '========================================';
+    
+    RETURN 'Расчеты успешно завершены за ' || v_duration;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ========================================
+-- 9. ПРИМЕРЫ ИСПОЛЬЗОВАНИЯ
+-- ========================================
+
+/*
+-- 1. Загрузка данных (перед первым запуском)
+-- Сначала нужно загрузить данные в glm_data_full
+-- Это можно сделать через COPY или INSERT
+
+-- Пример загрузки из CSV:
+COPY actuary.glm_data_full ("Отв_Пр", "Тип страхователя", "Тип договора", 
+                            "Месяц действия", "Месяц календарный", "MCL", "Exp")
+FROM '/path/to/your/data.csv' DELIMITER ',' CSV HEADER;
+
+-- 2. Запуск всех расчетов
+SELECT actuary.glm_run_all();
+
+-- 3. Просмотр результатов
+SELECT * FROM actuary.glm_result_full 
+ORDER BY "Группа", "Подгруппа", "Месяц действия", "Месяц календарный";
+
+-- 4. Просмотр результатов для конкретной группы
+SELECT * FROM actuary.glm_result_full 
+WHERE "Группа" = 'Ответственный страховщик' 
+  AND "Подгруппа" = 'ФЛ, Первоначальный'
+ORDER BY "Месяц действия", "Месяц календарный";
+
+-- 5. Просмотр только K1 для всех групп
+SELECT 
+    "Группа",
+    "Подгруппа",
+    "Месяц действия",
+    "K1"
+FROM actuary.glm_result_full 
+WHERE "Месяц действия" IS NOT NULL
+ORDER BY "Группа", "Подгруппа", "Месяц действия";
+
+-- 6. Просмотр только K2 для всех групп
+SELECT 
+    "Группа",
+    "Подгруппа",
+    "Месяц календарный",
+    "K2"
+FROM actuary.glm_result_full 
+WHERE "Месяц календарный" IS NOT NULL
+ORDER BY "Группа", "Подгруппа", "Месяц календарный";
+
+-- 7. Очистка всех данных (кроме исходных)
+SELECT actuary.glm_cleanup();
+
+-- 8. Выполнить расчет только для одной комбинации
+-- (без массового запуска)
+TRUNCATE TABLE actuary.glm_data;
+INSERT INTO actuary.glm_data ("Месяц действия", "Месяц календарный", "MCL", "Exp")
+SELECT "Месяц действия", "Месяц календарный", "MCL", "Exp"
+FROM actuary.glm_data_full
+WHERE "Отв_Пр" = 'ОтвСтр' 
+  AND "Тип страхователя" = 'ФЛ'
+  AND "Тип договора" = 'Первоначальный';
+
+TRUNCATE TABLE actuary.glm_ind;
+PERFORM actuary.glm_calc_ind();
+
+TRUNCATE TABLE actuary.glm_result;
+PERFORM actuary.glm_calc_main();
+
+SELECT * FROM actuary.glm_result ORDER BY "Месяц действия", "Месяц календарный";
+*/
+
+-- ========================================
+-- КОНЕЦ СКРИПТА
+-- ========================================
