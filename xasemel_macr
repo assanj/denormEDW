@@ -1,1 +1,654 @@
-xasemel
+Option Explicit
+Dim N1 As Integer
+Dim N2 As Integer
+
+Dim i, j, num As Integer
+
+Dim V() As Double
+Dim S() As Double
+Dim Z() As Double
+
+Dim Ind1() As Double
+Dim Ind2() As Double
+
+Dim F1() As String
+Dim F2() As String
+
+Dim V_plus_i() As Double
+Dim V_i_plus() As Double
+Dim Z_plus_i() As Double
+Dim Z__plus() As Double
+Dim Z_i() As Double
+
+Dim s1, s2 As Double
+Dim g1, g2 As String
+
+Sub Calc_Ind()
+Dim List_Name_1 As String
+Dim List_Name_2 As String
+Dim Count As Integer
+
+Worksheets("Ind").Activate
+List_Name_1 = ActiveSheet.Name
+List_Name_2 = "Data"
+
+N1 = Worksheets(List_Name_1).Cells(1, 8).Value
+N2 = Worksheets(List_Name_1).Cells(2, 8).Value
+
+ReDim V(N1 - 1, N2 - 1)
+ReDim S(N1 - 1, N2 - 1)
+ReDim Z(N1 - 1, N2 - 1)
+
+ReDim Ind1(N1 - 1)
+ReDim Ind2(N2 - 1)
+
+ReDim F1(N1 - 1)
+ReDim F2(N2 - 1)
+
+For i = 0 To N1 - 1
+    F1(i) = CStr(Worksheets(List_Name_1).Cells(i + 2, 1).Value)
+Next i
+For i = 0 To N2 - 1
+    F2(i) = CStr(Worksheets(List_Name_1).Cells(i + 2, 4).Value)
+Next i
+
+Worksheets(List_Name_2).Activate
+Count = Application.WorksheetFunction.CountA(Columns(1))
+For num = 2 To Count
+    g1 = Worksheets(List_Name_2).Cells(num, 1).Value
+    g2 = Worksheets(List_Name_2).Cells(num, 2).Value
+    For i = 0 To N1 - 1
+        For j = 0 To N2 - 1
+            If g1 = F1(i) And g2 = F2(j) Then
+                V(i, j) = Worksheets(List_Name_2).Cells(num, 4).Value
+                S(i, j) = Worksheets(List_Name_2).Cells(num, 3).Value
+                If V(i, j) > 0 Then
+                    Z(i, j) = S(i, j) / V(i, j)
+                Else
+                    Z(i, j) = 0
+                End If
+            End If
+        Next j
+    Next i
+Next num
+
+' Вычисление Ind1()
+ReDim V_plus_i(N2 - 1)
+ReDim V_i_plus(N1 - 1)
+ReDim Z_plus_i(N2 - 1)
+ReDim Z_i_plus(N1 - 1)
+ReDim Z_i(N1 - 1)
+
+For num = 0 To N1 - 1
+    ' Вычисление V_plus_i()
+    For j = 0 To N2 - 1
+        V_plus_i(j) = 0
+        For i = 0 To N1 - 1
+            V_plus_i(j) = V_plus_i(j) + V(i, j)
+        Next i
+    Next j
+    ' Вычисление V_i_plus(num)
+    V_i_plus(num) = 0
+    For j = 0 To N2 - 1
+        V_i_plus(num) = V_i_plus(num) + V(num, j)
+    Next j
+
+    ' Вычисление Z_plus_i()
+    For j = 0 To N2 - 1
+        Z_plus_i(j) = 0
+        For i = 0 To N1 - 1
+            Z_plus_i(j) = Z_plus_i(j) + V(i, j) * Z(i, j)
+        Next i
+        If V_plus_i(j) > 0 Then
+            Z_plus_i(j) = Z_plus_i(j) / V_plus_i(j)
+        Else
+            Z_plus_i(j) = 0
+        End If
+    Next j
+    
+    ' Вычисление Z_i_plus(num)
+    Z_i_plus(num) = 0
+    For j = 0 To N2 - 1
+        Z_i_plus(num) = Z_i_plus(num) + V(num, j) * Z(num, j)
+    Next j
+    If V_i_plus(num) > 0 Then
+        Z_i_plus(num) = Z_i_plus(num) / V_i_plus(num)
+    Else
+        Z_i_plus(num) = 0
+    End If
+
+    ' Вычисление Z_i(num)
+    Z_i(num) = 0
+    For j = 0 To N2 - 1
+        Z_i(num) = Z_i(num) + V(num, j) * Z_plus_i(j)
+    Next j
+    If V_i_plus(num) > 0 Then
+        Z_i(num) = Z_i(num) / V_i_plus(num)
+    Else
+        Z_i(num) = 0
+    End If
+
+    ' Непосредственное вычисление Ind1(num)
+    If Z_i(num) > 0 Then
+        Ind1(num) = Z_i_plus(num) / Z_i(num)
+    Else
+        Ind1(num) = 0
+    End If
+    Worksheets(List_Name_1).Cells(num + 2, 2).Value = Ind1(num)
+Next num
+
+' Вычисление Ind2()
+ReDim V_plus_i(N1 - 1)
+ReDim V_i_plus(N2 - 1)
+ReDim Z_plus_i(N1 - 1)
+ReDim Z_i_plus(N2 - 1)
+ReDim Z_i(N2 - 1)
+
+For num = 0 To N2 - 1
+    ' Вычисление V_plus_i()
+    For i = 0 To N1 - 1
+        V_plus_i(i) = 0
+        For j = 0 To N2 - 1
+            V_plus_i(i) = V_plus_i(i) + V(i, j)
+        Next j
+    Next i
+    
+    ' Вычисление V_i_plus(num)
+    V_i_plus(num) = 0
+    For i = 0 To N1 - 1
+        V_i_plus(num) = V_i_plus(num) + V(i, num)
+    Next i
+
+    ' Вычисление Z_plus_i()
+    For i = 0 To N1 - 1
+        Z_plus_i(i) = 0
+        For j = 0 To N2 - 1
+            Z_plus_i(i) = Z_plus_i(i) + V(i, j) * Z(i, j)
+        Next j
+        If V_plus_i(i) > 0 Then
+            Z_plus_i(i) = Z_plus_i(i) / V_plus_i(i)
+        Else
+            Z_plus_i(i) = 0
+        End If
+    Next i
+    ' Вычисление Z_i_plus(num)
+    Z_i_plus(num) = 0
+    For i = 0 To N1 - 1
+        Z_i_plus(num) = Z_i_plus(num) + V(i, num) * Z(i, num)
+    Next i
+    If V_i_plus(num) > 0 Then
+        Z_i_plus(num) = Z_i_plus(num) / V_i_plus(num)
+    Else
+        Z_i_plus(num) = 0
+    End If
+
+    ' Вычисление Z_i(num)
+    Z_i(num) = 0
+    For i = 0 To N1 - 1
+        Z_i(num) = Z_i(num) + V(i, num) * Z_plus_i(i)
+    Next i
+    If V_i_plus(num) > 0 Then
+        Z_i(num) = Z_i(num) / V_i_plus(num)
+    Else
+        Z_i(num) = 0
+    End If
+
+    ' Непосредственное вычисление Ind2(num)
+    If Z_i(num) > 0 Then
+        Ind2(num) = Z_i_plus(num) / Z_i(num)
+    Else
+        Ind2(num) = 0
+    End If
+    Worksheets(List_Name_1).Cells(num + 2, 5).Value = Ind2(num)
+Next num
+
+Worksheets(List_Name_1).Activate
+End Sub
+
+
+
+
+======================================расчёт: =============
+Option Explicit
+Dim i As Integer
+Dim j As Integer
+Dim k As Integer
+
+Dim N1 As Integer 'количество групп по месяцу действия
+Dim N2 As Integer 'количество групп по месяцу календарному
+
+Dim Z() As Double 'матрица значений нормированного убытка
+Dim V() As Double 'матрица значений экспозиции (объема)
+Dim S() As Double 'матрица значений убытка
+
+Dim F1() As String
+Dim F2() As String
+
+Dim K1() As Double 'вектор значений коэффициентов по месяцу действия
+Dim tempK1() As Double 'текущий вектор значений коэффициентов по месяцу действия
+Dim K2() As Double 'вектор значений коэффициентов по месяцу календарному
+Dim tempK2() As Double 'текущий вектор значений коэффициентов по месяцу календарному
+
+Dim dist As Double 'величина ошибки при текущей итерации
+Dim eps As Double 'допустимая ошибка (критерий прекращения итераций)
+
+Dim s1, s2 As Double
+
+Function norma(A, tempA, B, tempB, N1, N2) As Double
+
+s1 = 0
+s2 = 0
+For i = 0 To N1 - 1
+    s1 = s1 + (A(i) - tempA(i)) ^ 2
+Next i
+For i = 0 To N2 - 1
+    s2 = s2 + (B(i) - tempB(i)) ^ 2
+Next i
+norma = Sqr(s1 + s2)
+
+End Function
+
+Sub Расчет()
+Dim Count As Integer
+Dim num As Integer
+Dim g1, g2 As String
+
+Worksheets("Result").Activate
+
+N1 = Application.WorksheetFunction.CountA(Columns(1)) - 1
+N2 = Application.WorksheetFunction.CountA(Columns(3)) - 1
+eps = 0.000001
+
+ReDim Z(N1 - 1, N2 - 1)
+ReDim V(N1 - 1, N2 - 1)
+ReDim S(N1 - 1, N2 - 1)
+ReDim K1(N1 - 1)
+ReDim tempK1(N1 - 1)
+ReDim K2(N2 - 1)
+ReDim tempK2(N2 - 1)
+ReDim F1(N1 - 1)
+ReDim F2(N2 - 1)
+For i = 0 To N1 - 1
+    F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value)
+Next i
+For i = 0 To N2 - 1
+    F2(i) = CStr(Worksheets("Result").Cells(i + 2, 3).Value)
+Next i
+
+Worksheets("Data").Activate
+Count = Application.WorksheetFunction.CountA(Columns(1))
+For num = 2 To Count
+    g1 = Worksheets("Data").Cells(num, 1).Value
+    g2 = Worksheets("Data").Cells(num, 2).Value
+    For i = 0 To N1 - 1
+        For j = 0 To N2 - 1
+            If g1 = F1(i) And g2 = F2(j) Then
+                V(i, j) = Worksheets("Data").Cells(num, 4).Value
+                S(i, j) = Worksheets("Data").Cells(num, 3).Value
+                If V(i, j) > 0 Then
+                    Z(i, j) = S(i, j) / V(i, j)
+                Else
+                    Z(i, j) = 0
+                End If
+            End If
+        Next j
+    Next i
+Next num
+
+'Метод максимального правдоподобия
+For i = 0 To N1 - 1
+    tempK1(i) = 1
+Next i
+For j = 0 To N2 - 1
+    tempK2(j) = 1
+Next j
+
+For j = 0 To N2 - 1 'задаем начальный единичный вектор для итераций
+    K2(j) = 1
+Next j
+
+dist = 1
+
+While dist > eps
+    For i = 0 To N1 - 1
+        s1 = 0
+        s2 = 0
+        For j = 0 To N2 - 1
+            s1 = s1 + S(i, j) / K2(j)
+            s2 = s2 + V(i, j)
+        Next j
+        K1(i) = s1 / s2
+    Next i
+    
+    For j = 0 To N2 - 1
+        s1 = 0
+        s2 = 0
+        For i = 0 To N1 - 1
+                s1 = s1 + S(i, j) / K1(i)
+                s2 = s2 + V(i, j)
+        Next i
+        K2(j) = s1 / s2
+    Next j
+    
+        
+    dist = norma(K1, tempK1, K2, tempK2, N1, N2)
+    
+    For i = 0 To N1 - 1
+        tempK1(i) = K1(i)
+    Next i
+    
+    For j = 0 To N2 - 1
+        tempK2(j) = K2(j)
+    Next j
+     
+Wend
+
+For i = 2 To 1 + N1
+    Worksheets("Result").Cells(i, 2).Value = K1(i - 2)
+Next i
+For j = 2 To 1 + N2
+    Worksheets("Result").Cells(j, 4).Value = K2(j - 2)
+Next j
+
+Worksheets("Result").Cells(2, 5).Value = 1
+
+Worksheets("Result").Activate
+End Sub
+
+
+=======
+
+Sub Расчет_по_всем()
+
+' Расчет 1: ответственный страховщик, ФЛ, первоначальные
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ОтвСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ФЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Первоначальный"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("A4").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 2: ответственный страховщик, ФЛ, возобновлённые
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ОтвСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ФЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Возобновлённый"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("A20").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 3: ответственный страховщик, ФЛ, ЕГП
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ОтвСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ФЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="ЕГП"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("A36").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 4: ответственный страховщик, ЮЛ, первоначальные
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ОтвСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ЮЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Первоначальный"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("A52").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 5: ответственный страховщик, ЮЛ, возобновлённые
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ОтвСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ЮЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Возобновлённый"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("A68").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 6: ответственный страховщик, ЮЛ, ЕГП
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ОтвСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ЮЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="ЕГП"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("A84").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 7: прямой страховщик, ФЛ, первоначальные
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ПрСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ФЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Первоначальный"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("F4").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 8: прямой страховщик, ФЛ, возобновлённые
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ПрСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ФЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Возобновлённый"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("F20").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 9: прямой страховщик, ФЛ, ЕГП
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ПрСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ФЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="ЕГП"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("F36").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 10: прямой страховщик, ЮЛ, первоначальные
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ПрСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ЮЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Первоначальный"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("F52").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 11: прямой страховщик, ЮЛ, возобновлённые
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ПрСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ЮЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="Возобновлённый"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("F68").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+' Расчет 12: прямой страховщик, ЮЛ, ЕГП
+
+Sheets("DataFull").Select
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=1, Criteria1:="ПрСтр"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=2, Criteria1:="ЮЛ"
+ActiveSheet.Range("$A$1:$G$1873").AutoFilter Field:=3, Criteria1:="ЕГП"
+Range("D1:G1").Select
+Range(Selection, Selection.End(xlDown)).Select
+Application.CutCopyMode = False
+Selection.Copy
+Sheets("Data").Select
+Range("A1").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+Calc_Ind
+Расчет
+
+Sheets("Result").Select
+Range("A2:D14").Select
+Selection.Copy
+Sheets("ResultFull").Select
+Range("F84").Select
+Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+
+End Sub
+
+
+
