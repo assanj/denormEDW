@@ -1,12 +1,652 @@
-SQL Error [42703]: ERROR: column "j" does not exist
-  Where: PL/pgSQL function glm_calc_main() line 81 at SQL statement
-SQL statement "SELECT actuary.glm_calc_main()"
-PL/pgSQL function glm_calc_all() line 104 at PERFORM
-SQL statement "SELECT actuary.glm_calc_all()"
-PL/pgSQL function glm_run_all() line 14 at PERFORM
-  ERROR: column "j" does not exist
-  Where: PL/pgSQL function glm_calc_main() line 81 at SQL statement
-SQL statement "SELECT actuary.glm_calc_main()"
-PL/pgSQL function glm_calc_all() line 104 at PERFORM
-SQL statement "SELECT actuary.glm_calc_all()"
-PL/pgSQL function glm_run_all() line 14 at PERFORM
+Извините за ошибку! Проблема в том, что в цикле по `j` я использовал переменную `j` в качестве индекса массива, но в SQL-запросе внутри цикла нужно использовать значение массива, а не индекс. Давайте исправим функцию `glm_calc_main()`:
+
+```sql
+-- ========================================
+-- ИСПРАВЛЕННАЯ ФУНКЦИЯ ОСНОВНОГО РАСЧЕТА (аналог Sub Расчет)
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
+RETURNS VOID AS $$
+DECLARE
+    v_n1 INTEGER;            -- Количество групп по месяцам действия
+    v_n2 INTEGER;            -- Количество групп по календарным месяцам
+    v_eps NUMERIC := 0.000001; -- Допустимая ошибка (критерий остановки)
+    v_dist NUMERIC := 1;     -- Текущая ошибка
+    v_iter INTEGER := 0;     -- Счетчик итераций
+    v_max_iter INTEGER := 10000; -- Максимальное число итераций
+    v_i INTEGER;             -- Счетчик для месяцев действия
+    v_j INTEGER;             -- Счетчик для календарных месяцев
+    v_s1 NUMERIC;            -- Сумма S / K2
+    v_s2 NUMERIC;            -- Сумма V
+    v_k1_prev NUMERIC[];     -- Массив предыдущих значений K1
+    v_k2_prev NUMERIC[];     -- Массив предыдущих значений K2
+    v_k1_curr NUMERIC[];     -- Массив текущих значений K1
+    v_k2_curr NUMERIC[];     -- Массив текущих значений K2
+    v_action_months INTEGER[]; -- Массив уникальных месяцев действия
+    v_calendar_months INTEGER[]; -- Массив уникальных календарных месяцев
+    v_action_month INTEGER;  -- Текущий месяц действия
+    v_calendar_month INTEGER; -- Текущий календарный месяц
+BEGIN
+    -- ========================================
+    -- Шаг 1: Получаем размерности
+    -- ========================================
+    
+    -- Получаем уникальные месяцы действия
+    SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
+    INTO v_action_months
+    FROM actuary.glm_data;
+    
+    -- Получаем уникальные календарные месяцы
+    SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
+    INTO v_calendar_months
+    FROM actuary.glm_data;
+    
+    v_n1 := array_length(v_action_months, 1);
+    v_n2 := array_length(v_calendar_months, 1);
+    
+    -- Если нет данных, выходим
+    IF v_n1 IS NULL OR v_n2 IS NULL THEN
+        RAISE NOTICE 'Нет данных для расчета';
+        RETURN;
+    END IF;
+    
+    -- ========================================
+    -- Шаг 2: Создаем временную матрицу данных
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s
+    FROM actuary.glm_data;
+    
+    -- Создаем индексы для ускорения
+    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- ========================================
+    -- Шаг 3: Инициализация массивов
+    -- ========================================
+    
+    -- Начальные значения K1 = 1
+    v_k1_prev := array_fill(1, ARRAY[v_n1]);
+    v_k1_curr := array_fill(1, ARRAY[v_n1]);
+    
+    -- Начальные значения K2 = 1
+    v_k2_prev := array_fill(1, ARRAY[v_n2]);
+    v_k2_curr := array_fill(1, ARRAY[v_n2]);
+    
+    -- ========================================
+    -- Шаг 4: Итеративный алгоритм максимального правдоподобия
+    -- ========================================
+    
+    RAISE NOTICE 'Начинаем итеративный расчет...';
+    
+    WHILE v_dist > v_eps AND v_iter < v_max_iter LOOP
+        v_iter := v_iter + 1;
+        
+        -- 4.1: Обновляем K1 (по месяцам действия)
+        FOR v_i IN 1..v_n1 LOOP
+            v_action_month := v_action_months[v_i];
+            v_s1 := 0;
+            v_s2 := 0;
+            
+            -- Вычисляем суммы для данного месяца действия
+            -- ИСПРАВЛЕНО: используем v_j для перебора K2
+            FOR v_j IN 1..v_n2 LOOP
+                v_calendar_month := v_calendar_months[v_j];
+                
+                -- Суммируем S / K2 для данного месяца действия и всех календарных месяцев
+                SELECT 
+                    COALESCE(SUM(s / v_k2_curr[v_j]), 0),
+                    COALESCE(SUM(v), 0)
+                INTO v_s1, v_s2
+                FROM temp_matrix
+                WHERE "Месяц действия" = v_action_month
+                  AND "Месяц календарный" = v_calendar_month;
+            END LOOP;
+            
+            -- K1 = сумма(S/K2) / сумма(V)
+            IF v_s2 > 0 THEN
+                v_k1_curr[v_i] := v_s1 / v_s2;
+            ELSE
+                v_k1_curr[v_i] := 0;
+            END IF;
+        END LOOP;
+        
+        -- 4.2: Обновляем K2 (по календарным месяцам)
+        FOR v_j IN 1..v_n2 LOOP
+            v_calendar_month := v_calendar_months[v_j];
+            v_s1 := 0;
+            v_s2 := 0;
+            
+            -- Вычисляем суммы для данного календарного месяца
+            -- ИСПРАВЛЕНО: используем v_i для перебора K1
+            FOR v_i IN 1..v_n1 LOOP
+                v_action_month := v_action_months[v_i];
+                
+                -- Суммируем S / K1 для данного календарного месяца и всех месяцев действия
+                SELECT 
+                    COALESCE(SUM(s / v_k1_curr[v_i]), 0),
+                    COALESCE(SUM(v), 0)
+                INTO v_s1, v_s2
+                FROM temp_matrix
+                WHERE "Месяц действия" = v_action_month
+                  AND "Месяц календарный" = v_calendar_month;
+            END LOOP;
+            
+            -- K2 = сумма(S/K1) / сумма(V)
+            IF v_s2 > 0 THEN
+                v_k2_curr[v_j] := v_s1 / v_s2;
+            ELSE
+                v_k2_curr[v_j] := 0;
+            END IF;
+        END LOOP;
+        
+        -- 4.3: Вычисляем норму ошибки
+        v_dist := actuary.glm_norma(
+            v_k1_curr, v_k1_prev,
+            v_k2_curr, v_k2_prev,
+            v_n1, v_n2
+        );
+        
+        -- 4.4: Обновляем предыдущие значения
+        v_k1_prev := v_k1_curr;
+        v_k2_prev := v_k2_curr;
+        
+        -- Выводим прогресс каждые 100 итераций
+        IF v_iter % 100 = 0 THEN
+            RAISE NOTICE 'Итерация %, ошибка: %', v_iter, v_dist;
+        END IF;
+    END LOOP;
+    
+    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', v_iter, v_dist;
+    
+    -- ========================================
+    -- Шаг 5: Сохраняем результаты
+    -- ========================================
+    
+    -- Сохраняем K1 по месяцам действия
+    FOR v_i IN 1..v_n1 LOOP
+        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
+        VALUES (v_action_months[v_i], v_k1_curr[v_i]);
+    END LOOP;
+    
+    -- Сохраняем K2 по календарным месяцам
+    FOR v_j IN 1..v_n2 LOOP
+        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
+        VALUES (v_calendar_months[v_j], v_k2_curr[v_j]);
+    END LOOP;
+    
+    -- Устанавливаем базовую частоту = 1
+    UPDATE actuary.glm_result SET "Базовая частота" = 1;
+    
+    -- ========================================
+    -- Шаг 6: Очистка временных таблиц
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    
+    RAISE NOTICE 'Результаты сохранены.';
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Но я вижу, что этот подход с вложенными циклами может быть неэффективным. Давайте сделаем более оптимизированную версию, используя агрегатные функции SQL:
+
+```sql
+-- ========================================
+-- ОПТИМИЗИРОВАННАЯ ФУНКЦИЯ ОСНОВНОГО РАСЧЕТА
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
+RETURNS VOID AS $$
+DECLARE
+    v_n1 INTEGER;            -- Количество групп по месяцам действия
+    v_n2 INTEGER;            -- Количество групп по календарным месяцам
+    v_eps NUMERIC := 0.000001; -- Допустимая ошибка
+    v_dist NUMERIC := 1;     -- Текущая ошибка
+    v_iter INTEGER := 0;     -- Счетчик итераций
+    v_max_iter INTEGER := 10000; -- Максимальное число итераций
+    v_k1_prev NUMERIC[];     -- Массив предыдущих значений K1
+    v_k2_prev NUMERIC[];     -- Массив предыдущих значений K2
+    v_k1_curr NUMERIC[];     -- Массив текущих значений K1
+    v_k2_curr NUMERIC[];     -- Массив текущих значений K2
+    v_action_months INTEGER[]; -- Массив уникальных месяцев действия
+    v_calendar_months INTEGER[]; -- Массив уникальных календарных месяцев
+    v_row RECORD;            -- Для итерации по строкам
+    v_i INTEGER;             -- Индекс
+    v_j INTEGER;             -- Индекс
+BEGIN
+    -- ========================================
+    -- Шаг 1: Получаем размерности
+    -- ========================================
+    
+    SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
+    INTO v_action_months
+    FROM actuary.glm_data;
+    
+    SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
+    INTO v_calendar_months
+    FROM actuary.glm_data;
+    
+    v_n1 := COALESCE(array_length(v_action_months, 1), 0);
+    v_n2 := COALESCE(array_length(v_calendar_months, 1), 0);
+    
+    IF v_n1 = 0 OR v_n2 = 0 THEN
+        RAISE NOTICE 'Нет данных для расчета';
+        RETURN;
+    END IF;
+    
+    -- ========================================
+    -- Шаг 2: Создаем временную таблицу с данными
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s
+    FROM actuary.glm_data;
+    
+    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- ========================================
+    -- Шаг 3: Инициализация массивов
+    -- ========================================
+    
+    v_k1_prev := array_fill(1, ARRAY[v_n1]);
+    v_k1_curr := array_fill(1, ARRAY[v_n1]);
+    v_k2_prev := array_fill(1, ARRAY[v_n2]);
+    v_k2_curr := array_fill(1, ARRAY[v_n2]);
+    
+    -- ========================================
+    -- Шаг 4: Итеративный расчет
+    -- ========================================
+    
+    RAISE NOTICE 'Начинаем итеративный расчет (N1=%, N2=%)...', v_n1, v_n2;
+    
+    WHILE v_dist > v_eps AND v_iter < v_max_iter LOOP
+        v_iter := v_iter + 1;
+        
+        -- 4.1: Рассчитываем K1 для каждого месяца действия
+        FOR v_i IN 1..v_n1 LOOP
+            -- Используем агрегатную функцию для расчета суммы
+            SELECT 
+                COALESCE(SUM(tm.s / v_k2_curr[act.idx]), 0),
+                COALESCE(SUM(tm.v), 0)
+            INTO v_s1, v_s2
+            FROM temp_matrix tm
+            JOIN (
+                SELECT 
+                    "Месяц календарный",
+                    ROW_NUMBER() OVER (ORDER BY "Месяц календарный") AS idx
+                FROM (
+                    SELECT DISTINCT "Месяц календарный" 
+                    FROM temp_matrix
+                ) cal
+            ) act ON tm."Месяц календарный" = act."Месяц календарный"
+            WHERE tm."Месяц действия" = v_action_months[v_i];
+            
+            IF v_s2 > 0 THEN
+                v_k1_curr[v_i] := v_s1 / v_s2;
+            ELSE
+                v_k1_curr[v_i] := 0;
+            END IF;
+        END LOOP;
+        
+        -- 4.2: Рассчитываем K2 для каждого календарного месяца
+        FOR v_j IN 1..v_n2 LOOP
+            -- Используем агрегатную функцию для расчета суммы
+            SELECT 
+                COALESCE(SUM(tm.s / v_k1_curr[act.idx]), 0),
+                COALESCE(SUM(tm.v), 0)
+            INTO v_s1, v_s2
+            FROM temp_matrix tm
+            JOIN (
+                SELECT 
+                    "Месяц действия",
+                    ROW_NUMBER() OVER (ORDER BY "Месяц действия") AS idx
+                FROM (
+                    SELECT DISTINCT "Месяц действия" 
+                    FROM temp_matrix
+                ) act
+            ) act ON tm."Месяц действия" = act."Месяц действия"
+            WHERE tm."Месяц календарный" = v_calendar_months[v_j];
+            
+            IF v_s2 > 0 THEN
+                v_k2_curr[v_j] := v_s1 / v_s2;
+            ELSE
+                v_k2_curr[v_j] := 0;
+            END IF;
+        END LOOP;
+        
+        -- 4.3: Вычисляем норму ошибки
+        v_dist := actuary.glm_norma(
+            v_k1_curr, v_k1_prev,
+            v_k2_curr, v_k2_prev,
+            v_n1, v_n2
+        );
+        
+        -- 4.4: Обновляем предыдущие значения
+        v_k1_prev := v_k1_curr;
+        v_k2_prev := v_k2_curr;
+        
+        IF v_iter % 100 = 0 THEN
+            RAISE NOTICE 'Итерация %, ошибка: %', v_iter, v_dist;
+        END IF;
+    END LOOP;
+    
+    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', v_iter, v_dist;
+    
+    -- ========================================
+    -- Шаг 5: Сохраняем результаты
+    -- ========================================
+    
+    -- Сохраняем K1
+    FOR v_i IN 1..v_n1 LOOP
+        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
+        VALUES (v_action_months[v_i], v_k1_curr[v_i]);
+    END LOOP;
+    
+    -- Сохраняем K2
+    FOR v_j IN 1..v_n2 LOOP
+        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
+        VALUES (v_calendar_months[v_j], v_k2_curr[v_j]);
+    END LOOP;
+    
+    -- Устанавливаем базовую частоту = 1
+    UPDATE actuary.glm_result SET "Базовая частота" = 1;
+    
+    -- ========================================
+    -- Шаг 6: Очистка
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    
+    RAISE NOTICE 'Результаты сохранены.';
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Теперь давайте также пересоздадим функцию `glm_calc_ind()` с исправлениями:
+
+```sql
+-- ========================================
+-- ИСПРАВЛЕННАЯ ФУНКЦИЯ РАСЧЕТА ИНДЕКСОВ
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_ind()
+RETURNS VOID AS $$
+DECLARE
+    v_n1 INTEGER;
+    v_n2 INTEGER;
+    v_i INTEGER;
+    v_j INTEGER;
+    v_sum_v NUMERIC;
+    v_sum_vz NUMERIC;
+    v_expected_z NUMERIC;
+    v_action_month INTEGER;
+    v_calendar_month INTEGER;
+BEGIN
+    -- Получаем размерности
+    SELECT COUNT(DISTINCT "Месяц действия") INTO v_n1 
+    FROM actuary.glm_data;
+    
+    SELECT COUNT(DISTINCT "Месяц календарный") INTO v_n2 
+    FROM actuary.glm_data;
+    
+    IF v_n1 IS NULL OR v_n2 IS NULL OR v_n1 = 0 OR v_n2 = 0 THEN
+        RAISE NOTICE 'Нет данных для расчета индексов';
+        RETURN;
+    END IF;
+    
+    -- Сохраняем N1 и N2
+    INSERT INTO actuary.glm_ind ("N1", "N2") VALUES (v_n1, v_n2);
+    
+    -- Создаем временную матрицу
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s,
+        CASE 
+            WHEN "Exp" > 0 THEN "MCL" / "Exp" 
+            ELSE 0 
+        END AS z
+    FROM actuary.glm_data;
+    
+    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- ========================================
+    -- Расчет Ind1
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_ind1;
+    CREATE TEMP TABLE temp_ind1 (
+        "Месяц действия" INTEGER,
+        "Ind1" NUMERIC
+    );
+    
+    FOR v_i IN 1..v_n1 LOOP
+        SELECT DISTINCT "Месяц действия" INTO v_action_month
+        FROM temp_matrix
+        ORDER BY "Месяц действия"
+        OFFSET v_i - 1 LIMIT 1;
+        
+        -- V_i_plus
+        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
+        FROM temp_matrix
+        WHERE "Месяц действия" = v_action_month;
+        
+        -- Z_i_plus
+        SELECT 
+            CASE 
+                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
+                ELSE 0
+            END INTO v_sum_vz
+        FROM temp_matrix
+        WHERE "Месяц действия" = v_action_month;
+        
+        -- Z_i (ожидаемое)
+        WITH col_avg AS (
+            SELECT 
+                "Месяц календарный",
+                SUM(v) AS v_sum,
+                CASE 
+                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
+                    ELSE 0
+                END AS z_plus_i
+            FROM temp_matrix
+            GROUP BY "Месяц календарный"
+        )
+        SELECT 
+            CASE 
+                WHEN v_sum_v > 0 THEN SUM(tm.v * ca.z_plus_i) / v_sum_v
+                ELSE 0
+            END INTO v_expected_z
+        FROM temp_matrix tm
+        JOIN col_avg ca ON tm."Месяц календарный" = ca."Месяц календарный"
+        WHERE tm."Месяц действия" = v_action_month;
+        
+        -- Ind1
+        INSERT INTO temp_ind1 ("Месяц действия", "Ind1")
+        VALUES (
+            v_action_month,
+            CASE 
+                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
+                ELSE 0
+            END
+        );
+    END LOOP;
+    
+    INSERT INTO actuary.glm_ind ("Месяц действия", "Ind 1")
+    SELECT "Месяц действия", "Ind1"
+    FROM temp_ind1
+    ORDER BY "Месяц действия";
+    
+    -- ========================================
+    -- Расчет Ind2
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_ind2;
+    CREATE TEMP TABLE temp_ind2 (
+        "Месяц календарный" INTEGER,
+        "Ind2" NUMERIC
+    );
+    
+    FOR v_j IN 1..v_n2 LOOP
+        SELECT DISTINCT "Месяц календарный" INTO v_calendar_month
+        FROM temp_matrix
+        ORDER BY "Месяц календарный"
+        OFFSET v_j - 1 LIMIT 1;
+        
+        -- V_i_plus
+        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
+        FROM temp_matrix
+        WHERE "Месяц календарный" = v_calendar_month;
+        
+        -- Z_i_plus
+        SELECT 
+            CASE 
+                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
+                ELSE 0
+            END INTO v_sum_vz
+        FROM temp_matrix
+        WHERE "Месяц календарный" = v_calendar_month;
+        
+        -- Z_i (ожидаемое)
+        WITH row_avg AS (
+            SELECT 
+                "Месяц действия",
+                SUM(v) AS v_sum,
+                CASE 
+                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
+                    ELSE 0
+                END AS z_plus_i
+            FROM temp_matrix
+            GROUP BY "Месяц действия"
+        )
+        SELECT 
+            CASE 
+                WHEN v_sum_v > 0 THEN SUM(tm.v * ra.z_plus_i) / v_sum_v
+                ELSE 0
+            END INTO v_expected_z
+        FROM temp_matrix tm
+        JOIN row_avg ra ON tm."Месяц действия" = ra."Месяц действия"
+        WHERE tm."Месяц календарный" = v_calendar_month;
+        
+        -- Ind2
+        INSERT INTO temp_ind2 ("Месяц календарный", "Ind2")
+        VALUES (
+            v_calendar_month,
+            CASE 
+                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
+                ELSE 0
+            END
+        );
+    END LOOP;
+    
+    INSERT INTO actuary.glm_ind ("Месяц календарный", "Ind 2")
+    SELECT "Месяц календарный", "Ind2"
+    FROM temp_ind2
+    ORDER BY "Месяц календарный";
+    
+    -- Очистка
+    DROP TABLE IF EXISTS temp_matrix;
+    DROP TABLE IF EXISTS temp_ind1;
+    DROP TABLE IF EXISTS temp_ind2;
+    
+    RAISE NOTICE 'Расчет индексов завершен. N1=%, N2=%', v_n1, v_n2;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Теперь давайте также пересоздадим функцию `glm_norma` на случай, если там тоже есть проблемы:
+
+```sql
+-- ========================================
+-- ФУНКЦИЯ НОРМЫ
+-- ========================================
+
+CREATE OR REPLACE FUNCTION actuary.glm_norma(
+    p_k1 NUMERIC[],
+    p_temp_k1 NUMERIC[],
+    p_k2 NUMERIC[],
+    p_temp_k2 NUMERIC[],
+    p_n1 INTEGER,
+    p_n2 INTEGER
+)
+RETURNS NUMERIC AS $$
+DECLARE
+    v_s1 NUMERIC := 0;
+    v_s2 NUMERIC := 0;
+    v_i INTEGER;
+BEGIN
+    -- Проверяем, что массивы не NULL
+    IF p_k1 IS NULL OR p_temp_k1 IS NULL OR 
+       p_k2 IS NULL OR p_temp_k2 IS NULL THEN
+        RETURN 1;
+    END IF;
+    
+    -- Сумма квадратов для K1
+    FOR v_i IN 1..p_n1 LOOP
+        IF v_i <= array_length(p_k1, 1) AND v_i <= array_length(p_temp_k1, 1) THEN
+            v_s1 := v_s1 + (COALESCE(p_k1[v_i], 0) - COALESCE(p_temp_k1[v_i], 0)) ^ 2;
+        END IF;
+    END LOOP;
+    
+    -- Сумма квадратов для K2
+    FOR v_i IN 1..p_n2 LOOP
+        IF v_i <= array_length(p_k2, 1) AND v_i <= array_length(p_temp_k2, 1) THEN
+            v_s2 := v_s2 + (COALESCE(p_k2[v_i], 0) - COALESCE(p_temp_k2[v_i], 0)) ^ 2;
+        END IF;
+    END LOOP;
+    
+    RETURN SQRT(v_s1 + v_s2);
+END;
+$$ LANGUAGE plpgsql;
+```
+
+Теперь пересоздайте все функции в правильном порядке:
+
+```sql
+-- 1. Сначала функция нормы
+DROP FUNCTION IF EXISTS actuary.glm_norma;
+CREATE OR REPLACE FUNCTION actuary.glm_norma(...) ...
+
+-- 2. Затем функция расчета индексов
+DROP FUNCTION IF EXISTS actuary.glm_calc_ind;
+CREATE OR REPLACE FUNCTION actuary.glm_calc_ind() ...
+
+-- 3. Затем основная функция расчета
+DROP FUNCTION IF EXISTS actuary.glm_calc_main;
+CREATE OR REPLACE FUNCTION actuary.glm_calc_main() ...
+
+-- 4. Затем функция массового расчета
+DROP FUNCTION IF EXISTS actuary.glm_calc_all;
+CREATE OR REPLACE FUNCTION actuary.glm_calc_all() ...
+
+-- 5. Затем функция запуска
+DROP FUNCTION IF EXISTS actuary.glm_run_all;
+CREATE OR REPLACE FUNCTION actuary.glm_run_all() ...
+```
+
+После этого выполните:
+
+```sql
+-- Загрузите данные в glm_data_full (если еще не загружены)
+-- Затем запустите расчеты
+SELECT actuary.glm_run_all();
+```
+
+Если ошибка останется, дайте знать, я исправлю конкретное место.
