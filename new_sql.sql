@@ -3,23 +3,23 @@ Dim i As Integer
 Dim j As Integer
 Dim k As Integer
 
-Dim N1 As Integer 'количество групп по месяцу действия
-Dim N2 As Integer 'количество групп по месяцу календарному
+Dim N1 As Integer
+Dim N2 As Integer
 
-Dim Z() As Double 'матрица значений нормированного убытка
-Dim V() As Double 'матрица значений экспозиции (объема)
-Dim S() As Double 'матрица значений убытка
+Dim Z() As Double
+Dim V() As Double
+Dim S() As Double
 
 Dim F1() As String
 Dim F2() As String
 
-Dim K1() As Double 'вектор значений коэффициентов по месяцу действия
-Dim tempK1() As Double 'текущий вектор значений коэффициентов по месяцу действия
-Dim K2() As Double 'вектор значений коэффициентов по месяцу календарному
-Dim tempK2() As Double 'текущий вектор значений коэффициентов по месяцу календарному
+Dim K1() As Double
+Dim tempK1() As Double
+Dim K2() As Double
+Dim tempK2() As Double
 
-Dim dist As Double 'величина ошибки при текущей итерации
-Dim eps As Double 'допустимая ошибка (критерий прекращения итераций)
+Dim dist As Double
+Dim eps As Double
 
 Dim s1, s2 As Double
 
@@ -38,11 +38,16 @@ norma = Sqr(s1 + s2)
 End Function
 
 Sub Расчет()
+On Error GoTo ErrorHandler  ' ДОБАВЛЕНО: обработчик ошибок
+
 Dim Count As Integer
 Dim num As Integer
 Dim g1, g2 As String
-Dim iterCount As Integer  ' ДОБАВЛЕНО для диагностики
-Dim rowDiag As Integer   ' ДОБАВЛЕНО для диагностики
+Dim iterCount As Integer
+Dim rowDiag As Integer
+Dim foundCount As Integer
+Dim sumV As Double
+Dim sumS As Double
 
 Worksheets("Result").Activate
 
@@ -64,6 +69,12 @@ rowDiag = rowDiag + 1
 Cells(rowDiag, 7).Value = "eps"
 Cells(rowDiag, 8).Value = eps
 rowDiag = rowDiag + 2
+
+' Проверка: если N1 или N2 = 0, то выходим
+If N1 = 0 Or N2 = 0 Then
+    MsgBox "Ошибка: N1 или N2 равны 0! Проверьте данные на листе Result"
+    Exit Sub
+End If
 
 ReDim Z(N1 - 1, N2 - 1)
 ReDim V(N1 - 1, N2 - 1)
@@ -97,8 +108,12 @@ rowDiag = rowDiag + N2 + 2
 Worksheets("Data").Activate
 Count = Application.WorksheetFunction.CountA(Columns(1))
 
-' ===== ДИАГНОСТИКА: счетчик найденных соответствий =====
-Dim foundCount As Integer
+' Проверка: если Count = 0, то выходим
+If Count = 0 Then
+    MsgBox "Ошибка: нет данных на листе Data!"
+    Exit Sub
+End If
+
 foundCount = 0
 
 For num = 2 To Count
@@ -127,8 +142,6 @@ Cells(rowDiag, 9).Value = "Ожидалось: " & N1 * N2
 rowDiag = rowDiag + 2
 
 ' ===== ДИАГНОСТИКА: выводим суммы V и S =====
-Dim sumV As Double
-Dim sumS As Double
 sumV = 0
 sumS = 0
 For i = 0 To N1 - 1
@@ -145,7 +158,7 @@ Cells(rowDiag, 7).Value = "Сумма S (MCL)"
 Cells(rowDiag, 8).Value = sumS
 rowDiag = rowDiag + 2
 
-'Метод максимального правдоподобия
+' ===== ИНИЦИАЛИЗАЦИЯ ИНДЕКСОВ =====
 For i = 0 To N1 - 1
     tempK1(i) = 1
 Next i
@@ -153,7 +166,7 @@ For j = 0 To N2 - 1
     tempK2(j) = 1
 Next j
 
-For j = 0 To N2 - 1 'задаем начальный единичный вектор для итераций
+For j = 0 To N2 - 1
     K2(j) = 1
 Next j
 
@@ -169,30 +182,53 @@ Cells(rowDiag, 9).Value = "K1(0)"
 Cells(rowDiag, 10).Value = "K2(0)"
 rowDiag = rowDiag + 1
 
+' ===== ИТЕРАТИВНЫЙ ПРОЦЕСС =====
 While dist > eps
     iterCount = iterCount + 1
     
+    ' Защита от бесконечного цикла
+    If iterCount > 10000 Then
+        MsgBox "Превышен лимит итераций (10000)! Возможно, данные не сходятся."
+        Exit While
+    End If
+    
+    ' Обновляем K1
     For i = 0 To N1 - 1
         s1 = 0
         s2 = 0
         For j = 0 To N2 - 1
-            s1 = s1 + S(i, j) / K2(j)
+            ' Защита от деления на ноль
+            If K2(j) <> 0 Then
+                s1 = s1 + S(i, j) / K2(j)
+            End If
             s2 = s2 + V(i, j)
         Next j
-        K1(i) = s1 / s2
+        If s2 > 0 Then
+            K1(i) = s1 / s2
+        Else
+            K1(i) = 1
+        End If
     Next i
     
+    ' Обновляем K2
     For j = 0 To N2 - 1
         s1 = 0
         s2 = 0
         For i = 0 To N1 - 1
+            ' Защита от деления на ноль
+            If K1(i) <> 0 Then
                 s1 = s1 + S(i, j) / K1(i)
-                s2 = s2 + V(i, j)
+            End If
+            s2 = s2 + V(i, j)
         Next i
-        K2(j) = s1 / s2
+        If s2 > 0 Then
+            K2(j) = s1 / s2
+        Else
+            K2(j) = 1
+        End If
     Next j
     
-        
+    ' Вычисляем ошибку
     dist = norma(K1, tempK1, K2, tempK2, N1, N2)
     
     ' ===== ДИАГНОСТИКА: выводим каждую 5-ю итерацию =====
@@ -204,6 +240,7 @@ While dist > eps
         rowDiag = rowDiag + 1
     End If
     
+    ' Сохраняем текущие значения
     For i = 0 To N1 - 1
         tempK1(i) = K1(i)
     Next i
@@ -241,7 +278,7 @@ For j = 0 To N2 - 1
     Cells(rowDiag + j, 8).Value = K2(j)
 Next j
 
-' ===== ВЫВОД РЕЗУЛЬТАТОВ (ОРИГИНАЛЬНЫЙ КОД) =====
+' ===== ВЫВОД РЕЗУЛЬТАТОВ =====
 For i = 2 To 1 + N1
     Worksheets("Result").Cells(i, 2).Value = K1(i - 2)
 Next i
@@ -261,4 +298,21 @@ MsgBox "Расчет завершен!" & vbCrLf & _
        "Финальная ошибка: " & dist & vbCrLf & _
        "Смотрите диагностику в колонках G-Z"
 
+Exit Sub  ' Выходим, чтобы не выполнять обработчик ошибок
+
+ErrorHandler:
+    ' ===== ВЫВОД ОШИБКИ =====
+    MsgBox "Произошла ошибка:" & vbCrLf & _
+           "Номер: " & Err.Number & vbCrLf & _
+           "Описание: " & Err.Description & vbCrLf & _
+           "Строка: " & Erl
+           
+    ' Выводим ошибку на лист
+    Worksheets("Result").Activate
+    Cells(rowDiag, 7).Value = "!!! ОШИБКА !!!"
+    Cells(rowDiag, 8).Value = Err.Number
+    Cells(rowDiag, 9).Value = Err.Description
+    Columns("G:Z").AutoFit
+    
+    Resume Next
 End Sub
