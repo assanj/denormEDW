@@ -1,364 +1,444 @@
-CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
+-- DROP FUNCTION actuary.glm_calc_ind();
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_ind()
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-    -- =====================================================
-    -- ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ (Dim ... As ...)
-    -- Соответствие VBA: Dim i As Integer, Dim j As Integer
-    -- =====================================================
-    i INTEGER;              -- VBA: i As Integer
-    j INTEGER;              -- VBA: j As Integer
-    num INTEGER;            -- VBA: num As Integer
-    g1 INTEGER;             -- VBA: g1 As String (месяц действия из Data)
-    g2 INTEGER;             -- VBA: g2 As String (календарный месяц из Data)
-    
-    N1 INTEGER;             -- VBA: N1 As Integer 'количество групп по месяцу действия
-    N2 INTEGER;             -- VBA: N2 As Integer 'количество групп по месяцу календарному
-    
-    Count INTEGER;          -- VBA: Count As Integer 'количество строк с данными
-    foundCount INTEGER;     -- VBA: foundCount As Integer 'счетчик найденных соответствий
-    
-    eps NUMERIC := 0.000001;  -- VBA: eps = 0.000001 'допустимая ошибка
-    dist NUMERIC := 1;      -- VBA: dist As Double 'величина ошибки при текущей итерации
-    iterCount INTEGER := 0; -- VBA: iterCount As Integer 'счетчик итераций
-    
-    s1 NUMERIC;             -- VBA: s1 As Double 'сумма для числителя
-    s2 NUMERIC;             -- VBA: s2 As Double 'сумма для знаменателя
-    sumV NUMERIC;           -- VBA: sumV As Double 'сумма V для диагностики
-    sumS NUMERIC;           -- VBA: sumS As Double 'сумма S для диагностики
-    
-    -- =====================================================
-    -- МАТРИЦЫ ДАННЫХ (как в VBA)
-    -- VBA: Dim Z() As Double, Dim V() As Double, Dim S() As Double
-    -- VBA: ReDim Z(N1 - 1, N2 - 1)
-    -- =====================================================
-    Z NUMERIC[][];          -- VBA: Z() As Double 'матрица значений нормированного убытка Z = S/V
-    V NUMERIC[][];          -- VBA: V() As Double 'матрица значений экспозиции (объема)
-    S NUMERIC[][];          -- VBA: S() As Double 'матрица значений убытка
-    
-    -- =====================================================
-    -- МАССИВЫ ИНДЕКСОВ (как в VBA)
-    -- VBA: Dim K1() As Double, Dim tempK1() As Double
-    -- VBA: Dim K2() As Double, Dim tempK2() As Double
-    -- =====================================================
-    tempK1 NUMERIC[];       -- VBA: tempK1() 'текущий вектор для проверки сходимости
-    K1 NUMERIC[];           -- VBA: K1() 'вектор значений коэффициентов по месяцу действия
-    tempK2 NUMERIC[];       -- VBA: tempK2() 'текущий вектор для проверки сходимости
-    K2 NUMERIC[];           -- VBA: K2() 'вектор значений коэффициентов по месяцу календарному
-    
-    -- =====================================================
-    -- МАССИВЫ НАЗВАНИЙ (как в VBA)
-    -- VBA: Dim F1() As String, Dim F2() As String
-    -- =====================================================
-    F1 INTEGER[];           -- VBA: F1() As String 'названия месяцев действия
-    F2 INTEGER[];           -- VBA: F2() As String 'названия календарных месяцев
-    
+    v_n1 INTEGER;           -- Количество групп по месяцам действия
+    v_n2 INTEGER;           -- Количество групп по календарным месяцам
+    v_i INTEGER;            -- Счетчик для месяцев действия
+    v_j INTEGER;            -- Счетчик для календарных месяцев
+    v_sum_v NUMERIC;        -- Сумма экспозиции V
+    v_sum_vz NUMERIC;       -- Сумма V * Z (взвешенный убыток)
+    v_expected_z NUMERIC;   -- Ожидаемое значение Z
+    v_action_month INTEGER; -- Текущий месяц действия
+    v_calendar_month INTEGER; -- Текущий календарный месяц
+    v_action_months INTEGER[]; -- Массив уникальных месяцев действия
+    v_calendar_months INTEGER[]; -- Массив уникальных календарных месяцев
 BEGIN
-    -- =====================================================
-    -- ШАГ 1: ПОЛУЧАЕМ УНИКАЛЬНЫЕ МЕСЯЦЫ (как в VBA)
-    -- VBA: N1 = Application.WorksheetFunction.CountA(Columns(1)) - 1
-    -- VBA: N2 = Application.WorksheetFunction.CountA(Columns(3)) - 1
-    -- =====================================================
+    -- ========================================
+    -- Шаг 1: Получаем размерности и уникальные значения
+    -- ========================================
     
-    -- VBA: For i = 0 To N1 - 1: F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value): Next i
+    -- Собираем все уникальные месяцы действия в массив
     SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
-    INTO F1
+    INTO v_action_months
     FROM actuary.glm_data;
     
-    -- VBA: For i = 0 To N2 - 1: F2(i) = CStr(Worksheets("Result").Cells(i + 2, 3).Value): Next i
+    -- Собираем все уникальные календарные месяцы в массив
     SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
-    INTO F2
+    INTO v_calendar_months
     FROM actuary.glm_data;
     
-    -- VBA: N1 = ... , N2 = ...
-    N1 := COALESCE(array_length(F1, 1), 0);
-    N2 := COALESCE(array_length(F2, 1), 0);
+    -- Определяем количество групп
+    v_n1 := COALESCE(array_length(v_action_months, 1), 0);
+    v_n2 := COALESCE(array_length(v_calendar_months, 1), 0);
     
-    -- VBA: If N1 = 0 Or N2 = 0 Then Exit Sub
-    IF N1 = 0 OR N2 = 0 THEN
-        RAISE NOTICE 'Нет данных для расчета';
+    -- Проверка наличия данных
+    IF v_n1 = 0 OR v_n2 = 0 THEN
+        RAISE NOTICE 'Нет данных для расчета индексов';
         RETURN;
     END IF;
-
-    -- =====================================================
-    -- ШАГ 2: ПОДГОТОВКА ДАННЫХ (как в VBA)
-    -- VBA: ReDim Z(N1 - 1, N2 - 1)
-    -- VBA: ReDim V(N1 - 1, N2 - 1)
-    -- VBA: ReDim S(N1 - 1, N2 - 1)
-    -- 
-    -- МАТЕМАТИКА: ПУАССОНОВСКАЯ МОДЕЛЬ
-    -- 
-    -- ПРЕДПОЛОЖЕНИЕ: S(i,j) ~ Poisson(λ(i,j))
-    -- где λ(i,j) = V(i,j) * K1(i) * K2(j)
-    -- 
-    -- S(i,j) - убытки, распределены по Пуассону
-    -- V(i,j) - экспозиция (известна, как смещение - offset)
-    -- K1(i) - эффект месяца действия (оценивается)
-    -- K2(j) - эффект календарного месяца (оценивается)
-    -- 
-    -- ФУНКЦИЯ ПРАВДОПОДОБИЯ:
-    -- L = ∏(i,j) exp(-λ(i,j)) * λ(i,j)^S(i,j) / S(i,j)!
-    -- 
-    -- ЛОГАРИФМИЧЕСКАЯ ФУНКЦИЯ ПРАВДОПОДОБИЯ:
-    -- l = Σ(i,j) [ -λ(i,j) + S(i,j)*ln(λ(i,j)) - ln(S(i,j)!) ]
-    -- 
-    -- ПОДСТАНОВКА λ = V * K1 * K2:
-    -- l = Σ(i,j) [ -V(i,j)*K1(i)*K2(j) + S(i,j)*ln(V(i,j)) + S(i,j)*ln(K1(i)) + S(i,j)*ln(K2(j)) - ln(S(i,j)!) ]
-    -- 
-    -- МАКСИМИЗАЦИЯ ПО K1 и K2 дает систему уравнений (см. ШАГ 5)
-    -- =====================================================
     
-    -- Создаем временную таблицу (аналог листа Data в Excel)
+    -- Сохраняем N1 и N2 в таблицу Ind (как в Excel)
+    INSERT INTO actuary.glm_ind ("N1", "N2") VALUES (v_n1, v_n2);
+    
+    -- ========================================
+    -- Шаг 2: Создаем временную матрицу с нормированным убытком Z = S / V
+    -- ========================================
+    
     DROP TABLE IF EXISTS temp_matrix;
     CREATE TEMP TABLE temp_matrix AS
     SELECT 
         "Месяц действия",
         "Месяц календарный",
-        "Exp" AS v,          -- VBA: V(i, j) = Worksheets("Data").Cells(num, 4).Value
-        "MCL" AS s           -- VBA: S(i, j) = Worksheets("Data").Cells(num, 3).Value
+        "Exp" AS v,                    -- Экспозиция (объем)
+        "MCL" AS s,                    -- Убыток
+        CASE 
+            WHEN "Exp" > 0 THEN "MCL" / "Exp"  -- Нормированный убыток
+            ELSE 0 
+        END AS z
     FROM actuary.glm_data;
-
-    -- VBA: ReDim V(N1 - 1, N2 - 1) и т.д.
-    V := array_fill(0, ARRAY[N1, N2]);
-    S := array_fill(0, ARRAY[N1, N2]);
-    Z := array_fill(0, ARRAY[N1, N2]);
     
-    -- =====================================================
-    -- ШАГ 3: ЗАПОЛНЕНИЕ МАТРИЦ (как в VBA)
-    -- VBA: For num = 2 To Count
-    -- VBA:     g1 = Worksheets("Data").Cells(num, 1).Value
-    -- VBA:     g2 = Worksheets("Data").Cells(num, 2).Value
-    -- VBA:     If g1 = F1(i) And g2 = F2(j) Then
-    -- VBA:         V(i, j) = Worksheets("Data").Cells(num, 4).Value
-    -- VBA:         S(i, j) = Worksheets("Data").Cells(num, 3).Value
-    -- VBA:         If V(i, j) > 0 Then Z(i, j) = S(i, j) / V(i, j)
-    -- 
-    -- МАТЕМАТИКА:
-    -- Z(i,j) = S(i,j) / V(i,j) - это эмпирическая частота убытков
-    -- В пуассоновской модели Z является оценкой λ/V
-    -- =====================================================
-    FOR i IN 1..N1 LOOP
-        FOR j IN 1..N2 LOOP
-            
-            -- VBA: V(i, j) = Worksheets("Data").Cells(num, 4).Value
-            -- VBA: S(i, j) = Worksheets("Data").Cells(num, 3).Value
-            SELECT COALESCE(v, 0), COALESCE(s, 0)
-            INTO s1, s2
+    -- Создаем индексы для ускорения запросов
+    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- ========================================
+    -- Шаг 3: Расчет Ind1 (индексы по месяцам действия)
+    -- ========================================
+    -- Алгоритм:
+    -- 1. V_i_plus = Σ V (сумма V по строке)
+    -- 2. Z_i_plus = Σ(V*Z) / ΣV (средневзвешенное Z по строке)
+    -- 3. Z_i = Σ(V * Z_plus_i) / ΣV (ожидаемое Z)
+    -- 4. Ind1 = Z_i_plus / Z_i
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_ind1;
+    CREATE TEMP TABLE temp_ind1 (
+        "Месяц действия" INTEGER,
+        "Ind1" NUMERIC
+    );
+    
+    -- Цикл по каждому месяцу действия
+    FOR v_i IN 1..v_n1 LOOP
+        v_action_month := v_action_months[v_i];
+        
+        -- 3.1: Вычисляем V_i_plus = сумма V по строке (для данного месяца действия)
+        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
+        FROM temp_matrix
+        WHERE "Месяц действия" = v_action_month;
+        
+        -- 3.2: Вычисляем Z_i_plus = (сумма V * Z) / (сумма V) по строке
+        -- Это средневзвешенное Z для данного месяца действия
+        SELECT 
+            CASE 
+                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
+                ELSE 0
+            END INTO v_sum_vz
+        FROM temp_matrix
+        WHERE "Месяц действия" = v_action_month;
+        
+        -- 3.3: Вычисляем Z_i = сумма(V * Z_plus_i) / сумма(V)
+        -- где Z_plus_i - средневзвешенное Z по столбцам (календарным месяцам)
+        WITH col_avg AS (
+            -- Для каждого календарного месяца вычисляем средневзвешенное Z по столбцу
+            SELECT 
+                "Месяц календарный",
+                SUM(v) AS v_sum,
+                CASE 
+                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
+                    ELSE 0
+                END AS z_plus_i
             FROM temp_matrix
-            WHERE "Месяц действия" = F1[i]
-              AND "Месяц календарный" = F2[j];
-            
-            V[i][j] := s1;  -- VBA: V(i, j)
-            S[i][j] := s2;  -- VBA: S(i, j)
-            
-            -- VBA: If V(i, j) > 0 Then Z(i, j) = S(i, j) / V(i, j) Else Z(i, j) = 0
-            IF s1 > 0 THEN
-                Z[i][j] := s2 / s1;  -- VBA: Z(i, j) = S(i, j) / V(i, j)
-            ELSE
-                Z[i][j] := 0;
-            END IF;
-        END LOOP;
-    END LOOP;
-    
-    -- =====================================================
-    -- ШАГ 4: ИНИЦИАЛИЗАЦИЯ ИНДЕКСОВ (как в VBA)
-    -- VBA: For i = 0 To N1 - 1: tempK1(i) = 1: Next i
-    -- VBA: For j = 0 To N2 - 1: tempK2(j) = 1: Next j
-    -- VBA: For j = 0 To N2 - 1: K2(j) = 1: Next j
-    -- 
-    -- МАТЕМАТИКА:
-    -- Начальное приближение: K1 = 1, K2 = 1
-    -- Это соответствует модели без эффектов (базовая частота = 1)
-    -- =====================================================
-    tempK1 := array_fill(1, ARRAY[N1]);  -- VBA: tempK1(i) = 1
-    K1 := array_fill(1, ARRAY[N1]);      -- VBA: K1(i) = 1
-    tempK2 := array_fill(1, ARRAY[N2]);  -- VBA: tempK2(j) = 1
-    K2 := array_fill(1, ARRAY[N2]);      -- VBA: K2(j) = 1
-    
-    RAISE NOTICE 'Начинаем итеративный расчет (N1=%, N2=%)...', N1, N2;
-    
-    -- =====================================================
-    -- ШАГ 5: ИТЕРАТИВНЫЙ ПРОЦЕСС (как в VBA)
-    -- VBA: While dist > eps
-    -- 
-    -- МАТЕМАТИКА: МЕТОД МАКСИМАЛЬНОГО ПРАВДОПОДОБИЯ ДЛЯ ПУАССОНА
-    -- 
-    -- Из логарифмической функции правдоподобия:
-    -- l = Σ(i,j) [ -V(i,j)*K1(i)*K2(j) + S(i,j)*ln(K1(i)) + S(i,j)*ln(K2(j)) + const ]
-    -- 
-    -- Берем производные по K1(i) и приравниваем к нулю:
-    -- ∂l/∂K1(i) = Σ(j) [ -V(i,j)*K2(j) + S(i,j)/K1(i) ] = 0
-    -- 
-    -- Отсюда: K1(i) = Σ(j) S(i,j) / Σ(j) V(i,j)*K2(j)
-    -- 
-    -- Аналогично для K2(j):
-    -- K2(j) = Σ(i) S(i,j) / Σ(i) V(i,j)*K1(i)
-    -- 
-    -- Это система нелинейных уравнений (т.к. K1 и K2 в знаменателе)
-    -- Решаем методом простой итерации (последовательных приближений)
-    -- =====================================================
-    
-    -- VBA: While dist > eps
-    WHILE dist > eps AND iterCount < 10000 LOOP
-        iterCount := iterCount + 1;
+            GROUP BY "Месяц календарный"
+        )
+        SELECT 
+            CASE 
+                WHEN v_sum_v > 0 THEN SUM(tm.v * ca.z_plus_i) / v_sum_v
+                ELSE 0
+            END INTO v_expected_z
+        FROM temp_matrix tm
+        JOIN col_avg ca ON tm."Месяц календарный" = ca."Месяц календарный"
+        WHERE tm."Месяц действия" = v_action_month;
         
-        -- =====================================================
-        -- ОБНОВЛЕНИЕ K1 (по месяцам действия)
-        -- VBA: For i = 0 To N1 - 1
-        -- VBA:     s1 = 0: s2 = 0
-        -- VBA:     For j = 0 To N2 - 1
-        -- VBA:         s1 = s1 + S(i, j) / K2(j)
-        -- VBA:         s2 = s2 + V(i, j)
-        -- VBA:     Next j
-        -- VBA:     K1(i) = s1 / s2
-        -- VBA: Next i
-        --
-        -- МАТЕМАТИКА:
-        -- K1(i) = Σ(j) S(i,j) / K2(j) / Σ(j) V(i,j)
-        --
-        -- Это решение уравнения правдоподобия для K1(i):
-        -- Σ(j) [ -V(i,j)*K2(j) + S(i,j)/K1(i) ] = 0
-        --
-        -- Интерпретация: K1(i) - это средневзвешенное отношение
-        -- скорректированных убытков к экспозиции по строке i
-        -- =====================================================
-        FOR i IN 1..N1 LOOP
-            s1 := 0;  -- VBA: s1 = 0 (числитель)
-            s2 := 0;  -- VBA: s2 = 0 (знаменатель)
-            
-            FOR j IN 1..N2 LOOP
-                -- VBA: s1 = s1 + S(i, j) / K2(j)
-                IF K2[j] != 0 THEN
-                    s1 := s1 + S[i][j] / K2[j];
-                END IF;
-                -- VBA: s2 = s2 + V(i, j)
-                s2 := s2 + V[i][j];
-            END LOOP;
-            
-            -- VBA: K1(i) = s1 / s2
-            IF s2 > 0 THEN
-                K1[i] := s1 / s2;
-            ELSE
-                K1[i] := 1;
-            END IF;
-        END LOOP;
-        
-        -- =====================================================
-        -- ОБНОВЛЕНИЕ K2 (по календарным месяцам)
-        -- VBA: For j = 0 To N2 - 1
-        -- VBA:     s1 = 0: s2 = 0
-        -- VBA:     For i = 0 To N1 - 1
-        -- VBA:         s1 = s1 + S(i, j) / K1(i)
-        -- VBA:         s2 = s2 + V(i, j)
-        -- VBA:     Next i
-        -- VBA:     K2(j) = s1 / s2
-        -- VBA: Next j
-        --
-        -- МАТЕМАТИКА:
-        -- K2(j) = Σ(i) S(i,j) / K1(i) / Σ(i) V(i,j)
-        --
-        -- Это решение уравнения правдоподобия для K2(j):
-        -- Σ(i) [ -V(i,j)*K1(i) + S(i,j)/K2(j) ] = 0
-        --
-        -- Интерпретация: K2(j) - это средневзвешенное отношение
-        -- скорректированных убытков к экспозиции по столбцу j
-        -- =====================================================
-        FOR j IN 1..N2 LOOP
-            s1 := 0;  -- VBA: s1 = 0 (числитель)
-            s2 := 0;  -- VBA: s2 = 0 (знаменатель)
-            
-            FOR i IN 1..N1 LOOP
-                -- VBA: s1 = s1 + S(i, j) / K1(i)
-                IF K1[i] != 0 THEN
-                    s1 := s1 + S[i][j] / K1[i];
-                END IF;
-                -- VBA: s2 = s2 + V(i, j)
-                s2 := s2 + V[i][j];
-            END LOOP;
-            
-            -- VBA: K2(j) = s1 / s2
-            IF s2 > 0 THEN
-                K2[j] := s1 / s2;
-            ELSE
-                K2[j] := 1;
-            END IF;
-        END LOOP;
-        
-        -- =====================================================
-        -- ВЫЧИСЛЕНИЕ ОШИБКИ (проверка сходимости)
-        -- VBA: dist = norma(K1, tempK1, K2, tempK2, N1, N2)
-        --
-        -- МАТЕМАТИКА:
-        -- dist = √( Σ(i)(K1(i)-tempK1(i))² + Σ(j)(K2(j)-tempK2(j))² )
-        --
-        -- Евклидова норма разности между текущими и предыдущими
-        -- значениями коэффициентов. Критерий остановки итераций.
-        -- =====================================================
-        dist := actuary.glm_norma(
-            K1, tempK1,
-            K2, tempK2,
-            N1, N2
+        -- 3.4: Вычисляем Ind1 = Z_i_plus / Z_i
+        INSERT INTO temp_ind1 ("Месяц действия", "Ind1")
+        VALUES (
+            v_action_month,
+            CASE 
+                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
+                ELSE 0
+            END
         );
+    END LOOP;
+    
+    -- Сохраняем результаты Ind1 в таблицу
+    INSERT INTO actuary.glm_ind ("Месяц действия", "Ind 1")
+    SELECT "Месяц действия", "Ind1"
+    FROM temp_ind1
+    ORDER BY "Месяц действия";
+    
+    -- ========================================
+    -- Шаг 4: Расчет Ind2 (индексы по календарным месяцам)
+    -- ========================================
+    -- Алгоритм аналогичен Ind1, но с перестановкой измерений:
+    -- 1. V_i_plus = Σ V (сумма V по столбцу)
+    -- 2. Z_i_plus = Σ(V*Z) / ΣV (средневзвешенное Z по столбцу)
+    -- 3. Z_i = Σ(V * Z_plus_i) / ΣV (ожидаемое Z)
+    -- 4. Ind2 = Z_i_plus / Z_i
+    -- ========================================
+    
+    DROP TABLE IF EXISTS temp_ind2;
+    CREATE TEMP TABLE temp_ind2 (
+        "Месяц календарный" INTEGER,
+        "Ind2" NUMERIC
+    );
+    
+    -- Цикл по каждому календарному месяцу
+    FOR v_j IN 1..v_n2 LOOP
+        v_calendar_month := v_calendar_months[v_j];
         
-        -- VBA: For i = 0 To N1 - 1: tempK1(i) = K1(i): Next i
-        -- VBA: For j = 0 To N2 - 1: tempK2(j) = K2(j): Next j
-        tempK1 := K1;  -- VBA: tempK1 = K1
-        tempK2 := K2;  -- VBA: tempK2 = K2
+        -- 4.1: Вычисляем V_i_plus = сумма V по столбцу (для данного календарного месяца)
+        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
+        FROM temp_matrix
+        WHERE "Месяц календарный" = v_calendar_month;
         
-        IF iterCount % 10 = 0 THEN
-            RAISE NOTICE 'Итерация %, ошибка: %', iterCount, dist;
-        END IF;
-    END LOOP;
-    -- VBA: Wend (конец цикла)
-    
-    -- =====================================================
-    -- ФИНАЛЬНЫЙ РЕЗУЛЬТАТ
-    -- 
-    -- МАТЕМАТИКА: ИНТЕРПРЕТАЦИЯ РЕЗУЛЬТАТОВ
-    --
-    -- Модель: S(i,j) = V(i,j) * K1(i) * K2(j)
-    -- 
-    -- K1(i) - фактор месяца действия:
-    --   > 1  → убыточность выше средней для месяца действия i
-    --   = 1  → убыточность на среднем уровне
-    --   < 1  → убыточность ниже средней
-    --
-    -- K2(j) - фактор календарного месяца:
-    --   > 1  → убыточность выше средней для календарного месяца j
-    --   = 1  → убыточность на среднем уровне
-    --   < 1  → убыточность ниже средней
-    --
-    -- Прогноз: ожидаемый убыток = V * K1 * K2
-    -- =====================================================
-    
-    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', iterCount, dist;
-    
-    -- =====================================================
-    -- ШАГ 6: СОХРАНЕНИЕ РЕЗУЛЬТАТОВ (как в VBA)
-    -- VBA: For i = 2 To 1 + N1: Worksheets("Result").Cells(i, 2).Value = K1(i - 2): Next i
-    -- VBA: For j = 2 To 1 + N2: Worksheets("Result").Cells(j, 4).Value = K2(j - 2): Next j
-    -- VBA: Worksheets("Result").Cells(2, 5).Value = 1
-    -- =====================================================
-    
-    -- VBA: Сохраняем K1 в столбец B
-    FOR i IN 1..N1 LOOP
-        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
-        VALUES (F1[i], K1[i]);
-    END LOOP;
-    
-    -- VBA: Сохраняем K2 в столбец D
-    FOR j IN 1..N2 LOOP
-        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
-        VALUES (F2[j], K2[j]);
+        -- 4.2: Вычисляем Z_i_plus = (сумма V * Z) / (сумма V) по столбцу
+        SELECT 
+            CASE 
+                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
+                ELSE 0
+            END INTO v_sum_vz
+        FROM temp_matrix
+        WHERE "Месяц календарный" = v_calendar_month;
+        
+        -- 4.3: Вычисляем Z_i = сумма(V * Z_plus_i) / сумма(V)
+        -- где Z_plus_i - средневзвешенное Z по строкам (месяцам действия)
+        WITH row_avg AS (
+            -- Для каждого месяца действия вычисляем средневзвешенное Z по строке
+            SELECT 
+                "Месяц действия",
+                SUM(v) AS v_sum,
+                CASE 
+                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
+                    ELSE 0
+                END AS z_plus_i
+            FROM temp_matrix
+            GROUP BY "Месяц действия"
+        )
+        SELECT 
+            CASE 
+                WHEN v_sum_v > 0 THEN SUM(tm.v * ra.z_plus_i) / v_sum_v
+                ELSE 0
+            END INTO v_expected_z
+        FROM temp_matrix tm
+        JOIN row_avg ra ON tm."Месяц действия" = ra."Месяц действия"
+        WHERE tm."Месяц календарный" = v_calendar_month;
+        
+        -- 4.4: Вычисляем Ind2 = Z_i_plus / Z_i
+        INSERT INTO temp_ind2 ("Месяц календарный", "Ind2")
+        VALUES (
+            v_calendar_month,
+            CASE 
+                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
+                ELSE 0
+            END
+        );
     END LOOP;
     
-    -- VBA: Worksheets("Result").Cells(2, 5).Value = 1 (Базовая частота)
-    UPDATE actuary.glm_result SET "Базовая частота" = 1;
+    -- Сохраняем результаты Ind2 в таблицу
+    INSERT INTO actuary.glm_ind ("Месяц календарный", "Ind 2")
+    SELECT "Месяц календарный", "Ind2"
+    FROM temp_ind2
+    ORDER BY "Месяц календарный";
     
-    -- Очищаем временную таблицу
+    -- ========================================
+    -- Шаг 5: Очистка временных таблиц
+    -- ========================================
+    
     DROP TABLE IF EXISTS temp_matrix;
+    DROP TABLE IF EXISTS temp_ind1;
+    DROP TABLE IF EXISTS temp_ind2;
     
-    RAISE NOTICE 'Результаты сохранены.';
+    RAISE NOTICE 'Расчет индексов завершен. N1=%, N2=%', v_n1, v_n2;
 END;
-$function$;
+$function$
+;
+
+-- Permissions
+
+ALTER FUNCTION actuary.glm_calc_ind() OWNER TO mskazakov;
+GRANT ALL ON FUNCTION actuary.glm_calc_ind() TO mskazakov;
+ПРОМТ:
+этот код приведи в соответсвие названия переменных и комментарии по экселю 
+
+Option Explicit
+Dim N1 As Integer
+Dim N2 As Integer
+
+Dim i, j, num As Integer
+
+Dim V() As Double
+Dim S() As Double
+Dim Z() As Double
+
+Dim Ind1() As Double
+Dim Ind2() As Double
+
+Dim F1() As String
+Dim F2() As String
+
+Dim V_plus_i() As Double
+Dim V_i_plus() As Double
+Dim Z_plus_i() As Double
+Dim Z__plus() As Double
+Dim Z_i() As Double
+
+Dim s1, s2 As Double
+Dim g1, g2 As String
+
+Sub Calc_Ind()
+Dim List_Name_1 As String
+Dim List_Name_2 As String
+Dim Count As Integer
+
+Worksheets("Ind").Activate
+List_Name_1 = ActiveSheet.Name
+List_Name_2 = "Data"
+
+N1 = Worksheets(List_Name_1).Cells(1, 8).Value
+N2 = Worksheets(List_Name_1).Cells(2, 8).Value
+
+ReDim V(N1 - 1, N2 - 1)
+ReDim S(N1 - 1, N2 - 1)
+ReDim Z(N1 - 1, N2 - 1)
+
+ReDim Ind1(N1 - 1)
+ReDim Ind2(N2 - 1)
+
+ReDim F1(N1 - 1)
+ReDim F2(N2 - 1)
+
+For i = 0 To N1 - 1
+    F1(i) = CStr(Worksheets(List_Name_1).Cells(i + 2, 1).Value)
+Next i
+For i = 0 To N2 - 1
+    F2(i) = CStr(Worksheets(List_Name_1).Cells(i + 2, 4).Value)
+Next i
+
+Worksheets(List_Name_2).Activate
+Count = Application.WorksheetFunction.CountA(Columns(1))
+For num = 2 To Count
+    g1 = Worksheets(List_Name_2).Cells(num, 1).Value
+    g2 = Worksheets(List_Name_2).Cells(num, 2).Value
+    For i = 0 To N1 - 1
+        For j = 0 To N2 - 1
+            If g1 = F1(i) And g2 = F2(j) Then
+                V(i, j) = Worksheets(List_Name_2).Cells(num, 4).Value
+                S(i, j) = Worksheets(List_Name_2).Cells(num, 3).Value
+                If V(i, j) > 0 Then
+                    Z(i, j) = S(i, j) / V(i, j)
+                Else
+                    Z(i, j) = 0
+                End If
+            End If
+        Next j
+    Next i
+Next num
+
+' Вычисление Ind1()
+ReDim V_plus_i(N2 - 1)
+ReDim V_i_plus(N1 - 1)
+ReDim Z_plus_i(N2 - 1)
+ReDim Z_i_plus(N1 - 1)
+ReDim Z_i(N1 - 1)
+
+For num = 0 To N1 - 1
+    ' Вычисление V_plus_i()
+    For j = 0 To N2 - 1
+        V_plus_i(j) = 0
+        For i = 0 To N1 - 1
+            V_plus_i(j) = V_plus_i(j) + V(i, j)
+        Next i
+    Next j
+    ' Вычисление V_i_plus(num)
+    V_i_plus(num) = 0
+    For j = 0 To N2 - 1
+        V_i_plus(num) = V_i_plus(num) + V(num, j)
+    Next j
+
+    ' Вычисление Z_plus_i()
+    For j = 0 To N2 - 1
+        Z_plus_i(j) = 0
+        For i = 0 To N1 - 1
+            Z_plus_i(j) = Z_plus_i(j) + V(i, j) * Z(i, j)
+        Next i
+        If V_plus_i(j) > 0 Then
+            Z_plus_i(j) = Z_plus_i(j) / V_plus_i(j)
+        Else
+            Z_plus_i(j) = 0
+        End If
+    Next j
+    
+    ' Вычисление Z_i_plus(num)
+    Z_i_plus(num) = 0
+    For j = 0 To N2 - 1
+        Z_i_plus(num) = Z_i_plus(num) + V(num, j) * Z(num, j)
+    Next j
+    If V_i_plus(num) > 0 Then
+        Z_i_plus(num) = Z_i_plus(num) / V_i_plus(num)
+    Else
+        Z_i_plus(num) = 0
+    End If
+
+    ' Вычисление Z_i(num)
+    Z_i(num) = 0
+    For j = 0 To N2 - 1
+        Z_i(num) = Z_i(num) + V(num, j) * Z_plus_i(j)
+    Next j
+    If V_i_plus(num) > 0 Then
+        Z_i(num) = Z_i(num) / V_i_plus(num)
+    Else
+        Z_i(num) = 0
+    End If
+
+    ' Непосредственное вычисление Ind1(num)
+    If Z_i(num) > 0 Then
+        Ind1(num) = Z_i_plus(num) / Z_i(num)
+    Else
+        Ind1(num) = 0
+    End If
+    Worksheets(List_Name_1).Cells(num + 2, 2).Value = Ind1(num)
+Next num
+
+' Вычисление Ind2()
+ReDim V_plus_i(N1 - 1)
+ReDim V_i_plus(N2 - 1)
+ReDim Z_plus_i(N1 - 1)
+ReDim Z_i_plus(N2 - 1)
+ReDim Z_i(N2 - 1)
+
+For num = 0 To N2 - 1
+    ' Вычисление V_plus_i()
+    For i = 0 To N1 - 1
+        V_plus_i(i) = 0
+        For j = 0 To N2 - 1
+            V_plus_i(i) = V_plus_i(i) + V(i, j)
+        Next j
+    Next i
+    
+    ' Вычисление V_i_plus(num)
+    V_i_plus(num) = 0
+    For i = 0 To N1 - 1
+        V_i_plus(num) = V_i_plus(num) + V(i, num)
+    Next i
+
+    ' Вычисление Z_plus_i()
+    For i = 0 To N1 - 1
+        Z_plus_i(i) = 0
+        For j = 0 To N2 - 1
+            Z_plus_i(i) = Z_plus_i(i) + V(i, j) * Z(i, j)
+        Next j
+        If V_plus_i(i) > 0 Then
+            Z_plus_i(i) = Z_plus_i(i) / V_plus_i(i)
+        Else
+            Z_plus_i(i) = 0
+        End If
+    Next i
+    ' Вычисление Z_i_plus(num)
+    Z_i_plus(num) = 0
+    For i = 0 To N1 - 1
+        Z_i_plus(num) = Z_i_plus(num) + V(i, num) * Z(i, num)
+    Next i
+    If V_i_plus(num) > 0 Then
+        Z_i_plus(num) = Z_i_plus(num) / V_i_plus(num)
+    Else
+        Z_i_plus(num) = 0
+    End If
+
+    ' Вычисление Z_i(num)
+    Z_i(num) = 0
+    For i = 0 To N1 - 1
+        Z_i(num) = Z_i(num) + V(i, num) * Z_plus_i(i)
+    Next i
+    If V_i_plus(num) > 0 Then
+        Z_i(num) = Z_i(num) / V_i_plus(num)
+    Else
+        Z_i(num) = 0
+    End If
+
+    ' Непосредственное вычисление Ind2(num)
+    If Z_i(num) > 0 Then
+        Ind2(num) = Z_i_plus(num) / Z_i(num)
+    Else
+        Ind2(num) = 0
+    End If
+    Worksheets(List_Name_1).Cells(num + 2, 5).Value = Ind2(num)
+Next num
+
+Worksheets(List_Name_1).Activate
+End Sub
+
+
