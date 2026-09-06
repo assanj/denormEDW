@@ -1,281 +1,253 @@
-опять резуьттат очень похож, но не точчен.
-1.индексы у меня уже расчитаны, и они ТОЧНО СЧИТАЮТСЯ верно зачем ты это зашил  опять в функцию? используй ее.
- 2. почему я не вижу функцию нормы, которая тоде у меня уже есть. она правильная?
- -- DROP FUNCTION actuary.glm_norma(_numeric, _numeric, _numeric, _numeric, int4, int4);
-
-CREATE OR REPLACE FUNCTION actuary.glm_norma(p_k1 numeric[], p_temp_k1 numeric[], p_k2 numeric[], p_temp_k2 numeric[], p_n1 integer, p_n2 integer)
- RETURNS numeric
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    v_s1 NUMERIC := 0;  -- Сумма квадратов разностей для K1
-    v_s2 NUMERIC := 0;  -- Сумма квадратов разностей для K2
-    v_i INTEGER;        -- Счетчик для цикла
-BEGIN
-    -- Проверка: если какой-либо массив NULL, возвращаем 1 (максимальная ошибка)
-    IF p_k1 IS NULL OR p_temp_k1 IS NULL OR p_k2 IS NULL OR p_temp_k2 IS NULL THEN
-        RETURN 1;
-    END IF;
-    
-    -- Вычисляем сумму квадратов разностей для K1
-    -- Формула: Σ(K1[i] - tempK1[i])²
-    FOR v_i IN 1..p_n1 LOOP
-        -- Проверяем, что индекс существует в обоих массивах
-        IF v_i <= array_length(p_k1, 1) AND v_i <= array_length(p_temp_k1, 1) THEN
-            v_s1 := v_s1 + (COALESCE(p_k1[v_i], 0) - COALESCE(p_temp_k1[v_i], 0)) ^ 2;
-        END IF;
-    END LOOP;
-    
-    -- Вычисляем сумму квадратов разностей для K2
-    -- Формула: Σ(K2[j] - tempK2[j])²
-    FOR v_i IN 1..p_n2 LOOP
-        -- Проверяем, что индекс существует в обоих массивах
-        IF v_i <= array_length(p_k2, 1) AND v_i <= array_length(p_temp_k2, 1) THEN
-            v_s2 := v_s2 + (COALESCE(p_k2[v_i], 0) - COALESCE(p_temp_k2[v_i], 0)) ^ 2;
-        END IF;
-    END LOOP;
-    
-    -- Возвращаем корень из суммы квадратов (евклидова норма)
-    -- Формула: √(s1 + s2)
-    RETURN SQRT(v_s1 + v_s2);
-END;
-$function$
-;
-
--- Permissions
-
-ALTER FUNCTION actuary.glm_norma(_numeric, _numeric, _numeric, _numeric, int4, int4) OWNER TO mskazakov;
-GRANT ALL ON FUNCTION actuary.glm_norma(_numeric, _numeric, _numeric, _numeric, int4, int4) TO mskazakov;
-
-
-CREATE OR REPLACE FUNCTION actuary.glm_calc_ind()
+CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-    v_n1 INTEGER;           -- Количество групп по месяцам действия
-    v_n2 INTEGER;           -- Количество групп по календарным месяцам
-    v_i INTEGER;            -- Счетчик для месяцев действия
-    v_j INTEGER;            -- Счетчик для календарных месяцев
-    v_sum_v NUMERIC;        -- Сумма экспозиции V
-    v_sum_vz NUMERIC;       -- Сумма V * Z (взвешенный убыток)
-    v_expected_z NUMERIC;   -- Ожидаемое значение Z
-    v_action_month INTEGER; -- Текущий месяц действия
-    v_calendar_month INTEGER; -- Текущий календарный месяц
-    v_action_months INTEGER[]; -- Массив уникальных месяцев действия
-    v_calendar_months INTEGER[]; -- Массив уникальных календарных месяцев
-BEGIN
-    -- ========================================
-    -- Шаг 1: Получаем размерности и уникальные значения
-    -- ========================================
+    v_n1 INTEGER;
+    v_n2 INTEGER;
+    v_eps NUMERIC := 0.000001;
+    v_dist NUMERIC := 1;
+    v_iter INTEGER := 0;
+    v_max_iter INTEGER := 10000;
+    v_i INTEGER;
+    v_j INTEGER;
+    v_action_months INTEGER[];
+    v_calendar_months INTEGER[];
+    v_action_month INTEGER;
+    v_calendar_month INTEGER;
     
-    -- Собираем все уникальные месяцы действия в массив
+    -- Массивы для данных
+    v_v NUMERIC[][];
+    v_s NUMERIC[][];
+    
+    -- Массивы для индексов
+    v_k1_prev NUMERIC[];
+    v_k1_curr NUMERIC[];
+    v_k2_prev NUMERIC[];
+    v_k2_curr NUMERIC[];
+    
+    -- Временные переменные
+    v_sum1 NUMERIC;
+    v_sum2 NUMERIC;
+    v_sum3 NUMERIC;
+    v_sum4 NUMERIC;
+    v_vi NUMERIC;
+    v_si NUMERIC;
+    v_z_plus_i_val NUMERIC;
+    v_z_plus_j_val NUMERIC;
+BEGIN
+    -- Получаем уникальные месяцы
     SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
     INTO v_action_months
     FROM actuary.glm_data;
     
-    -- Собираем все уникальные календарные месяцы в массив
     SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
     INTO v_calendar_months
     FROM actuary.glm_data;
     
-    -- Определяем количество групп
     v_n1 := COALESCE(array_length(v_action_months, 1), 0);
     v_n2 := COALESCE(array_length(v_calendar_months, 1), 0);
     
-    -- Проверка наличия данных
     IF v_n1 = 0 OR v_n2 = 0 THEN
-        RAISE NOTICE 'Нет данных для расчета индексов';
+        RAISE NOTICE 'Нет данных для расчета';
         RETURN;
     END IF;
-    
-    -- Сохраняем N1 и N2 в таблицу Ind (как в Excel)
-    INSERT INTO actuary.glm_ind ("N1", "N2") VALUES (v_n1, v_n2);
-    
-    -- ========================================
-    -- Шаг 2: Создаем временную матрицу с нормированным убытком Z = S / V
-    -- ========================================
-    
+
+    -- Создаем временную таблицу
     DROP TABLE IF EXISTS temp_matrix;
     CREATE TEMP TABLE temp_matrix AS
     SELECT 
         "Месяц действия",
         "Месяц календарный",
-        "Exp" AS v,                    -- Экспозиция (объем)
-        "MCL" AS s,                    -- Убыток
-        CASE 
-            WHEN "Exp" > 0 THEN "MCL" / "Exp"  -- Нормированный убыток
-            ELSE 0 
-        END AS z
+        "Exp" AS v,
+        "MCL" AS s
     FROM actuary.glm_data;
+
+    -- Инициализация матриц
+    v_v := array_fill(0, ARRAY[v_n1, v_n2]);
+    v_s := array_fill(0, ARRAY[v_n1, v_n2]);
     
-    -- Создаем индексы для ускорения запросов
-    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
-    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
-    
-    -- ========================================
-    -- Шаг 3: Расчет Ind1 (индексы по месяцам действия)
-    -- ========================================
-    -- Алгоритм:
-    -- 1. V_i_plus = Σ V (сумма V по строке)
-    -- 2. Z_i_plus = Σ(V*Z) / ΣV (средневзвешенное Z по строке)
-    -- 3. Z_i = Σ(V * Z_plus_i) / ΣV (ожидаемое Z)
-    -- 4. Ind1 = Z_i_plus / Z_i
-    -- ========================================
-    
-    DROP TABLE IF EXISTS temp_ind1;
-    CREATE TEMP TABLE temp_ind1 (
-        "Месяц действия" INTEGER,
-        "Ind1" NUMERIC
-    );
-    
-    -- Цикл по каждому месяцу действия
+    -- Заполняем матрицы
     FOR v_i IN 1..v_n1 LOOP
         v_action_month := v_action_months[v_i];
-        
-        -- 3.1: Вычисляем V_i_plus = сумма V по строке (для данного месяца действия)
-        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
-        FROM temp_matrix
-        WHERE "Месяц действия" = v_action_month;
-        
-        -- 3.2: Вычисляем Z_i_plus = (сумма V * Z) / (сумма V) по строке
-        -- Это средневзвешенное Z для данного месяца действия
-        SELECT 
-            CASE 
-                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
-                ELSE 0
-            END INTO v_sum_vz
-        FROM temp_matrix
-        WHERE "Месяц действия" = v_action_month;
-        
-        -- 3.3: Вычисляем Z_i = сумма(V * Z_plus_i) / сумма(V)
-        -- где Z_plus_i - средневзвешенное Z по столбцам (календарным месяцам)
-        WITH col_avg AS (
-            -- Для каждого календарного месяца вычисляем средневзвешенное Z по столбцу
-            SELECT 
-                "Месяц календарный",
-                SUM(v) AS v_sum,
-                CASE 
-                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
-                    ELSE 0
-                END AS z_plus_i
+        FOR v_j IN 1..v_n2 LOOP
+            v_calendar_month := v_calendar_months[v_j];
+            
+            SELECT COALESCE(v, 0), COALESCE(s, 0)
+            INTO v_vi, v_si
             FROM temp_matrix
-            GROUP BY "Месяц календарный"
-        )
-        SELECT 
-            CASE 
-                WHEN v_sum_v > 0 THEN SUM(tm.v * ca.z_plus_i) / v_sum_v
-                ELSE 0
-            END INTO v_expected_z
-        FROM temp_matrix tm
-        JOIN col_avg ca ON tm."Месяц календарный" = ca."Месяц календарный"
-        WHERE tm."Месяц действия" = v_action_month;
-        
-        -- 3.4: Вычисляем Ind1 = Z_i_plus / Z_i
-        INSERT INTO temp_ind1 ("Месяц действия", "Ind1")
-        VALUES (
-            v_action_month,
-            CASE 
-                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
-                ELSE 0
-            END
-        );
+            WHERE "Месяц действия" = v_action_month
+              AND "Месяц календарный" = v_calendar_month;
+            
+            v_v[v_i][v_j] := v_vi;
+            v_s[v_i][v_j] := v_si;
+        END LOOP;
     END LOOP;
     
-    -- Сохраняем результаты Ind1 в таблицу
-    INSERT INTO actuary.glm_ind ("Месяц действия", "Ind 1")
-    SELECT "Месяц действия", "Ind1"
-    FROM temp_ind1
-    ORDER BY "Месяц действия";
+    -- Инициализация индексов
+    v_k1_prev := array_fill(1, ARRAY[v_n1]);
+    v_k1_curr := array_fill(1, ARRAY[v_n1]);
+    v_k2_prev := array_fill(1, ARRAY[v_n2]);
+    v_k2_curr := array_fill(1, ARRAY[v_n2]);
     
-    -- ========================================
-    -- Шаг 4: Расчет Ind2 (индексы по календарным месяцам)
-    -- ========================================
-    -- Алгоритм аналогичен Ind1, но с перестановкой измерений:
-    -- 1. V_i_plus = Σ V (сумма V по столбцу)
-    -- 2. Z_i_plus = Σ(V*Z) / ΣV (средневзвешенное Z по столбцу)
-    -- 3. Z_i = Σ(V * Z_plus_i) / ΣV (ожидаемое Z)
-    -- 4. Ind2 = Z_i_plus / Z_i
-    -- ========================================
+    RAISE NOTICE 'Начинаем итеративный расчет (N1=%, N2=%)...', v_n1, v_n2;
     
-    DROP TABLE IF EXISTS temp_ind2;
-    CREATE TEMP TABLE temp_ind2 (
-        "Месяц календарный" INTEGER,
-        "Ind2" NUMERIC
-    );
+    -- Итеративный процесс
+    WHILE v_dist > v_eps AND v_iter < v_max_iter LOOP
+        v_iter := v_iter + 1;
+        
+        -- Обновляем K1 (по месяцам действия)
+        FOR v_i IN 1..v_n1 LOOP
+            -- Вычисляем Z_i_plus (числитель для K1)
+            v_sum1 := 0;
+            v_sum2 := 0;
+            
+            FOR v_j IN 1..v_n2 LOOP
+                IF v_v[v_i][v_j] > 0 THEN
+                    v_sum1 := v_sum1 + v_v[v_i][v_j] * (v_s[v_i][v_j] / v_v[v_i][v_j]);
+                    v_sum2 := v_sum2 + v_v[v_i][v_j];
+                END IF;
+            END LOOP;
+            
+            IF v_sum2 > 0 THEN
+                v_sum1 := v_sum1 / v_sum2;
+            ELSE
+                v_sum1 := 0;
+            END IF;
+            
+            -- Вычисляем Z_i (знаменатель для K1)
+            v_sum3 := 0;
+            v_sum4 := 0;
+            
+            FOR v_j IN 1..v_n2 LOOP
+                -- Вычисляем Z_plus_i(j) - среднее по столбцу j
+                v_sum2 := 0;
+                v_sum1 := 0;
+                
+                FOR v_ii IN 1..v_n1 LOOP
+                    IF v_v[v_ii][v_j] > 0 THEN
+                        v_z_plus_i_val := v_s[v_ii][v_j] / v_v[v_ii][v_j];
+                        v_sum2 := v_sum2 + v_v[v_ii][v_j] * v_z_plus_i_val;
+                        v_sum1 := v_sum1 + v_v[v_ii][v_j];
+                    END IF;
+                END LOOP;
+                
+                IF v_sum1 > 0 THEN
+                    v_z_plus_i_val := v_sum2 / v_sum1;
+                ELSE
+                    v_z_plus_i_val := 0;
+                END IF;
+                
+                -- Добавляем к Z_i
+                v_sum3 := v_sum3 + v_v[v_i][v_j] * v_z_plus_i_val;
+                v_sum4 := v_sum4 + v_v[v_i][v_j];
+            END LOOP;
+            
+            IF v_sum4 > 0 THEN
+                v_sum3 := v_sum3 / v_sum4;
+            ELSE
+                v_sum3 := 1;
+            END IF;
+            
+            -- Обновляем K1
+            IF v_sum3 > 0 THEN
+                v_k1_curr[v_i] := v_sum1 / v_sum3;
+            ELSE
+                v_k1_curr[v_i] := 1;
+            END IF;
+        END LOOP;
+        
+        -- Обновляем K2 (по календарным месяцам)
+        FOR v_j IN 1..v_n2 LOOP
+            -- Вычисляем Z_j_plus (числитель для K2)
+            v_sum1 := 0;
+            v_sum2 := 0;
+            
+            FOR v_i IN 1..v_n1 LOOP
+                IF v_v[v_i][v_j] > 0 THEN
+                    v_sum1 := v_sum1 + v_v[v_i][v_j] * (v_s[v_i][v_j] / v_v[v_i][v_j]);
+                    v_sum2 := v_sum2 + v_v[v_i][v_j];
+                END IF;
+            END LOOP;
+            
+            IF v_sum2 > 0 THEN
+                v_sum1 := v_sum1 / v_sum2;
+            ELSE
+                v_sum1 := 0;
+            END IF;
+            
+            -- Вычисляем Z_j (знаменатель для K2)
+            v_sum3 := 0;
+            v_sum4 := 0;
+            
+            FOR v_i IN 1..v_n1 LOOP
+                -- Вычисляем Z_plus_j(i) - среднее по строке i
+                v_sum2 := 0;
+                v_sum1 := 0;
+                
+                FOR v_jj IN 1..v_n2 LOOP
+                    IF v_v[v_i][v_jj] > 0 THEN
+                        v_z_plus_j_val := v_s[v_i][v_jj] / v_v[v_i][v_jj];
+                        v_sum2 := v_sum2 + v_v[v_i][v_jj] * v_z_plus_j_val;
+                        v_sum1 := v_sum1 + v_v[v_i][v_jj];
+                    END IF;
+                END LOOP;
+                
+                IF v_sum1 > 0 THEN
+                    v_z_plus_j_val := v_sum2 / v_sum1;
+                ELSE
+                    v_z_plus_j_val := 0;
+                END IF;
+                
+                -- Добавляем к Z_j
+                v_sum3 := v_sum3 + v_v[v_i][v_j] * v_z_plus_j_val;
+                v_sum4 := v_sum4 + v_v[v_i][v_j];
+            END LOOP;
+            
+            IF v_sum4 > 0 THEN
+                v_sum3 := v_sum3 / v_sum4;
+            ELSE
+                v_sum3 := 1;
+            END IF;
+            
+            -- Обновляем K2
+            IF v_sum3 > 0 THEN
+                v_k2_curr[v_j] := v_sum1 / v_sum3;
+            ELSE
+                v_k2_curr[v_j] := 1;
+            END IF;
+        END LOOP;
+        
+        -- Вычисляем ошибку используя существующую функцию glm_norma
+        v_dist := actuary.glm_norma(
+            v_k1_curr, v_k1_prev,
+            v_k2_curr, v_k2_prev,
+            v_n1, v_n2
+        );
+        
+        v_k1_prev := v_k1_curr;
+        v_k2_prev := v_k2_curr;
+        
+        IF v_iter % 10 = 0 THEN
+            RAISE NOTICE 'Итерация %, ошибка: %', v_iter, v_dist;
+        END IF;
+    END LOOP;
     
-    -- Цикл по каждому календарному месяцу
+    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', v_iter, v_dist;
+    
+    -- Сохраняем результаты
+    FOR v_i IN 1..v_n1 LOOP
+        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
+        VALUES (v_action_months[v_i], v_k1_curr[v_i]);
+    END LOOP;
+    
     FOR v_j IN 1..v_n2 LOOP
-        v_calendar_month := v_calendar_months[v_j];
-        
-        -- 4.1: Вычисляем V_i_plus = сумма V по столбцу (для данного календарного месяца)
-        SELECT COALESCE(SUM(v), 0) INTO v_sum_v
-        FROM temp_matrix
-        WHERE "Месяц календарный" = v_calendar_month;
-        
-        -- 4.2: Вычисляем Z_i_plus = (сумма V * Z) / (сумма V) по столбцу
-        SELECT 
-            CASE 
-                WHEN COALESCE(SUM(v), 0) > 0 THEN SUM(v * z) / SUM(v)
-                ELSE 0
-            END INTO v_sum_vz
-        FROM temp_matrix
-        WHERE "Месяц календарный" = v_calendar_month;
-        
-        -- 4.3: Вычисляем Z_i = сумма(V * Z_plus_i) / сумма(V)
-        -- где Z_plus_i - средневзвешенное Z по строкам (месяцам действия)
-        WITH row_avg AS (
-            -- Для каждого месяца действия вычисляем средневзвешенное Z по строке
-            SELECT 
-                "Месяц действия",
-                SUM(v) AS v_sum,
-                CASE 
-                    WHEN SUM(v) > 0 THEN SUM(v * z) / SUM(v)
-                    ELSE 0
-                END AS z_plus_i
-            FROM temp_matrix
-            GROUP BY "Месяц действия"
-        )
-        SELECT 
-            CASE 
-                WHEN v_sum_v > 0 THEN SUM(tm.v * ra.z_plus_i) / v_sum_v
-                ELSE 0
-            END INTO v_expected_z
-        FROM temp_matrix tm
-        JOIN row_avg ra ON tm."Месяц действия" = ra."Месяц действия"
-        WHERE tm."Месяц календарный" = v_calendar_month;
-        
-        -- 4.4: Вычисляем Ind2 = Z_i_plus / Z_i
-        INSERT INTO temp_ind2 ("Месяц календарный", "Ind2")
-        VALUES (
-            v_calendar_month,
-            CASE 
-                WHEN v_expected_z > 0 THEN v_sum_vz / v_expected_z
-                ELSE 0
-            END
-        );
+        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
+        VALUES (v_calendar_months[v_j], v_k2_curr[v_j]);
     END LOOP;
-    
-    -- Сохраняем результаты Ind2 в таблицу
-    INSERT INTO actuary.glm_ind ("Месяц календарный", "Ind 2")
-    SELECT "Месяц календарный", "Ind2"
-    FROM temp_ind2
-    ORDER BY "Месяц календарный";
-    
-    -- ========================================
-    -- Шаг 5: Очистка временных таблиц
-    -- ========================================
     
     DROP TABLE IF EXISTS temp_matrix;
-    DROP TABLE IF EXISTS temp_ind1;
-    DROP TABLE IF EXISTS temp_ind2;
     
-    RAISE NOTICE 'Расчет индексов завершен. N1=%, N2=%', v_n1, v_n2;
+    RAISE NOTICE 'Результаты сохранены.';
 END;
-$function$
-;
-
--- Permissions
-
-ALTER FUNCTION actuary.glm_calc_ind() OWNER TO mskazakov;
-GRANT ALL ON FUNCTION actuary.glm_calc_ind() TO mskazakov;
+$function$;
