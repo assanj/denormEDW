@@ -57,6 +57,18 @@ BEGIN
         RAISE NOTICE 'Нет данных для расчета';
         RETURN;
     END IF;
+
+
+    -- Создаем временную матрицу данных
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s
+    FROM actuary.glm_data;
+
     
     -- Инициализация матриц
     v_v := array_fill(0, ARRAY[v_n1, v_n2]);
@@ -260,3 +272,9 @@ BEGIN
     RAISE NOTICE 'Результаты сохранены.';
 END;
 $function$;
+
+
+SQL Error [42601]: ERROR: "v_z_plus_i" is not a known variable
+  Position: 4443
+  ERROR: "v_z_plus_i" is not a known variable
+  Position: 4443
