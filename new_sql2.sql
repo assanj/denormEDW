@@ -1,146 +1,386 @@
+Option Explicit
+Dim N1 As Integer
+Dim N2 As Integer
 
---4. Присоединение справочников (аналог LEFT JOIN в Qlik)
+Dim i, j, num As Integer
 
--- 4.1. Присоединение справочника Сегменты
-DROP TABLE IF EXISTS actuary.rep_osago_data_step1;
-CREATE TABLE actuary.rep_osago_data_step1 AS
-SELECT d.*
-FROM actuary.rep_osago_data d
-LEFT JOIN actuary.ref_xls4triangles_segments s 
-    ON d."Тип страхователя" = s."Тип страхователя" 
-    AND COALESCE(d."Тип убытка крупный", '') = COALESCE(s."Тип убытка крупный", '');
+Dim V() As Double
+Dim S() As Double
+Dim Z() As Double
 
--- 4.2. Присоединение справочника Коэффициенты (по Сегмент, Год_месяц, Сдвиг)
-DROP TABLE IF EXISTS actuary.rep_osago_data_step2;
-CREATE TABLE actuary.rep_osago_data_step2 AS
-SELECT d.*,
-       c."Коэф_развития_1",
-       c."Коэф_развития_2",
-       c."k_risk",
-       c."k_season"
-FROM actuary.rep_osago_data_step1 d
-LEFT JOIN actuary.ref_xls4triangles_coefficients c 
-    ON d."Сегмент" = c."Сегмент" 
-    AND d."Год_месяц" = c."Месяц"
-    AND d."Сдвиг" = (c."Сдвиг"::int + 1)::text;
+Dim Ind1() As Double
+Dim Ind2() As Double
 
--- 4.3. Присоединение справочника Кварталы (для Месяца события)
-DROP TABLE IF EXISTS actuary.rep_osago_data_step3;
-CREATE TABLE actuary.rep_osago_data_step3 AS
-SELECT d.*,
-       q."Год",
-       q."Месяц",
-       q."DS",
-       q."Квартал"
-FROM actuary.rep_osago_data_step2 d
-LEFT JOIN actuary.ref_xls4triangles_quarters q 
-    ON d."Год_месяц" = q."Месяц события";
+Dim F1() As String
+Dim F2() As String
 
--- 4.4. Присоединение справочника Кварталы (для Месяца начала) - второй LEFT JOIN
-DROP TABLE IF EXISTS actuary.rep_osago_data_step4;
-CREATE TABLE actuary.rep_osago_data_step4 AS
-SELECT d.*,
-       q."Квартал события" as "Квартал начала",
-       q."Год" as "Год начала",
-       q."DS" as "DN"
-FROM actuary.rep_osago_data_step3 d
-LEFT JOIN actuary.ref_xls4triangles_quarters q 
-    ON d."Месяц начала" = q."Месяц события";
+Dim V_plus_i() As Double
+Dim V_i_plus() As Double
+Dim Z_plus_i() As Double
+Dim Z__plus() As Double
+Dim Z_i() As Double
 
--- 4.5. Присоединение справочника Коэффициенты COVID (k_covid19_osago)
--- Нужно создать справочник COVID из существующих данных, так как в комментариях его нет
--- Создаем временно на основе ref_xls4triangles_coefficients, если там есть поле k_covid19_osago
-DROP TABLE IF EXISTS actuary.temp_covid;
-CREATE TABLE actuary.temp_covid AS
-SELECT DISTINCT "Месяц" as "Месяц_COVID19", "k_covid19_osago"
-FROM actuary.ref_xls4triangles_coefficients
-WHERE "k_covid19_osago" IS NOT NULL;
+Dim s1, s2 As Double
+Dim g1, g2 As String
 
-DROP TABLE IF EXISTS actuary.rep_osago_data_step5;
-CREATE TABLE actuary.rep_osago_data_step5 AS
-SELECT d.*,
-       c."k_covid19_osago"
-FROM actuary.rep_osago_data_step4 d
-LEFT JOIN actuary.temp_covid c 
-    ON d."Год_месяц" = c."Месяц_COVID19";
+Sub Calc_Ind()
+Dim List_Name_1 As String
+Dim List_Name_2 As String
+Dim Count As Integer
 
--- 4.6. Присоединение справочника Коэффициенты (K_risk по Meсяц действия)
--- Сначала вычисляем Meсяц действия
-DROP TABLE IF EXISTS actuary.rep_osago_data_step6;
-CREATE TABLE actuary.rep_osago_data_step6 AS
-SELECT d.*,
-       EXTRACT(MONTH FROM d."DS")::int as "Месяц календарный",
-       GREATEST(
-           (EXTRACT(YEAR FROM d."DS") - EXTRACT(YEAR FROM d."DN")) * 12 
-           + EXTRACT(MONTH FROM d."DS") - EXTRACT(MONTH FROM d."DN") + 1,
-           1
-       ) as "Meсяц действия"
-FROM actuary.rep_osago_data_step5 d;
+Worksheets("Ind").Activate
+List_Name_1 = ActiveSheet.Name
+List_Name_2 = "Data"
 
--- 4.6.1. Присоединение K_risk
-DROP TABLE IF EXISTS actuary.rep_osago_data_step7;
-CREATE TABLE actuary.rep_osago_data_step7 AS
-SELECT d.*,
-       c."K_risk"
-FROM actuary.rep_osago_data_step6 d
-LEFT JOIN actuary.ref_xls4triangles_coefficients c 
-    ON d."Тип убытка крупный" = c."Тип убытка крупный"
-    AND d."Тип страхователя" = c."Тип страхователя"
-    AND d."Признак пролонгации" = c."Признак пролонгации"
-    AND d."Meсяц действия" = c."Месяц_";
+N1 = Worksheets(List_Name_1).Cells(1, 8).Value
+N2 = Worksheets(List_Name_1).Cells(2, 8).Value
 
--- 4.7. Присоединение K_season
-DROP TABLE IF EXISTS actuary.rep_osago_data_step8;
-CREATE TABLE actuary.rep_osago_data_step8 AS
-SELECT d.*,
-       c."K_season"
-FROM actuary.rep_osago_data_step7 d
-LEFT JOIN actuary.ref_xls4triangles_coefficients c 
-    ON d."Тип убытка крупный" = c."Тип убытка крупный"
-    AND d."Тип страхователя" = c."Тип страхователя"
-    AND d."Признак пролонгации" = c."Признак пролонгации"
-    AND d."Месяц календарный" = c."Месяц_";
+ReDim V(N1 - 1, N2 - 1)
+ReDim S(N1 - 1, N2 - 1)
+ReDim Z(N1 - 1, N2 - 1)
 
--- 4.8. Присоединение K_risk_all, K_risk_ppvu из справочника Коэф_ты
-DROP TABLE IF EXISTS actuary.rep_osago_data_step9;
-CREATE TABLE actuary.rep_osago_data_step9 AS
-SELECT d.*,
-       c."K_risk_all",
-       c."K_risk_ppvu"
-FROM actuary.rep_osago_data_step8 d
-LEFT JOIN actuary.ref_xls4triangles_coef_ts c 
-    ON d."Тип страхователя" = c."Тип страхователя"
-    AND d."Признак пролонгации" = c."Признак пролонгации"
-    AND d."Meсяц действия" = c."Месяц_";
+ReDim Ind1(N1 - 1)
+ReDim Ind2(N2 - 1)
 
--- 4.9. Присоединение K_season_all, K_season_ppvu из справочника Коэф_ты
-DROP TABLE IF EXISTS actuary.rep_osago_data_step10;
-CREATE TABLE actuary.rep_osago_data_step10 AS
-SELECT d.*,
-       c."K_season_all",
-       c."K_season_ppvu"
-FROM actuary.rep_osago_data_step9 d
-LEFT JOIN actuary.ref_xls4triangles_coef_ts c 
-    ON d."Тип страхователя" = c."Тип страхователя"
-    AND d."Признак пролонгации" = c."Признак пролонгации"
-    AND d."Месяц календарный" = c."Месяц_";
+ReDim F1(N1 - 1)
+ReDim F2(N2 - 1)
 
--- 5. Финальная таблица с вычислением Сдвиг_дн (аналог NoConcatenate Данные2)
-DROP TABLE IF EXISTS actuary.rep_osago_data_merged;
-CREATE TABLE actuary.rep_osago_data_merged AS
-SELECT d.*,
-       GREATEST(d."Meсяц действия", 1) + COALESCE(d."Сдвиг"::int, 0) - 1 as "Сдвиг_дн"
-FROM actuary.rep_osago_data_step10 d;
+For i = 0 To N1 - 1
+    F1(i) = CStr(Worksheets(List_Name_1).Cells(i + 2, 1).Value)
+Next i
+For i = 0 To N2 - 1
+    F2(i) = CStr(Worksheets(List_Name_1).Cells(i + 2, 4).Value)
+Next i
 
--- 6. Очистка промежуточных таблиц
-DROP TABLE IF EXISTS actuary.temp_covid;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step1;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step2;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step3;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step4;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step5;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step6;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step7;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step8;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step9;
-DROP TABLE IF EXISTS actuary.rep_osago_data_step10;
+Worksheets(List_Name_2).Activate
+Count = Application.WorksheetFunction.CountA(Columns(1))
+For num = 2 To Count
+    g1 = Worksheets(List_Name_2).Cells(num, 1).Value
+    g2 = Worksheets(List_Name_2).Cells(num, 2).Value
+    For i = 0 To N1 - 1
+        For j = 0 To N2 - 1
+            If g1 = F1(i) And g2 = F2(j) Then
+                V(i, j) = Worksheets(List_Name_2).Cells(num, 4).Value
+                S(i, j) = Worksheets(List_Name_2).Cells(num, 3).Value
+                If V(i, j) > 0 Then
+                    Z(i, j) = S(i, j) / V(i, j)
+                Else
+                    Z(i, j) = 0
+                End If
+            End If
+        Next j
+    Next i
+Next num
+
+' Âû÷èñëåíèå Ind1()
+ReDim V_plus_i(N2 - 1)
+ReDim V_i_plus(N1 - 1)
+ReDim Z_plus_i(N2 - 1)
+ReDim Z_i_plus(N1 - 1)
+ReDim Z_i(N1 - 1)
+
+For num = 0 To N1 - 1
+    ' Âû÷èñëåíèå V_plus_i()
+    For j = 0 To N2 - 1
+        V_plus_i(j) = 0
+        For i = 0 To N1 - 1
+            V_plus_i(j) = V_plus_i(j) + V(i, j)
+        Next i
+    Next j
+    ' Âû÷èñëåíèå V_i_plus(num)
+    V_i_plus(num) = 0
+    For j = 0 To N2 - 1
+        V_i_plus(num) = V_i_plus(num) + V(num, j)
+    Next j
+
+    ' Âû÷èñëåíèå Z_plus_i()
+    For j = 0 To N2 - 1
+        Z_plus_i(j) = 0
+        For i = 0 To N1 - 1
+            Z_plus_i(j) = Z_plus_i(j) + V(i, j) * Z(i, j)
+        Next i
+        If V_plus_i(j) > 0 Then
+            Z_plus_i(j) = Z_plus_i(j) / V_plus_i(j)
+        Else
+            Z_plus_i(j) = 0
+        End If
+    Next j
+    
+    ' Âû÷èñëåíèå Z_i_plus(num)
+    Z_i_plus(num) = 0
+    For j = 0 To N2 - 1
+        Z_i_plus(num) = Z_i_plus(num) + V(num, j) * Z(num, j)
+    Next j
+    If V_i_plus(num) > 0 Then
+        Z_i_plus(num) = Z_i_plus(num) / V_i_plus(num)
+    Else
+        Z_i_plus(num) = 0
+    End If
+
+    ' Âû÷èñëåíèå Z_i(num)
+    Z_i(num) = 0
+    For j = 0 To N2 - 1
+        Z_i(num) = Z_i(num) + V(num, j) * Z_plus_i(j)
+    Next j
+    If V_i_plus(num) > 0 Then
+        Z_i(num) = Z_i(num) / V_i_plus(num)
+    Else
+        Z_i(num) = 0
+    End If
+
+    ' Íåïîñðåäñòâåííîå âû÷èñëåíèå Ind1(num)
+    If Z_i(num) > 0 Then
+        Ind1(num) = Z_i_plus(num) / Z_i(num)
+    Else
+        Ind1(num) = 0
+    End If
+    Worksheets(List_Name_1).Cells(num + 2, 2).Value = Ind1(num)
+Next num
+
+' Âû÷èñëåíèå Ind2()
+ReDim V_plus_i(N1 - 1)
+ReDim V_i_plus(N2 - 1)
+ReDim Z_plus_i(N1 - 1)
+ReDim Z_i_plus(N2 - 1)
+ReDim Z_i(N2 - 1)
+
+For num = 0 To N2 - 1
+    ' Âû÷èñëåíèå V_plus_i()
+    For i = 0 To N1 - 1
+        V_plus_i(i) = 0
+        For j = 0 To N2 - 1
+            V_plus_i(i) = V_plus_i(i) + V(i, j)
+        Next j
+    Next i
+    
+    ' Âû÷èñëåíèå V_i_plus(num)
+    V_i_plus(num) = 0
+    For i = 0 To N1 - 1
+        V_i_plus(num) = V_i_plus(num) + V(i, num)
+    Next i
+
+    ' Âû÷èñëåíèå Z_plus_i()
+    For i = 0 To N1 - 1
+        Z_plus_i(i) = 0
+        For j = 0 To N2 - 1
+            Z_plus_i(i) = Z_plus_i(i) + V(i, j) * Z(i, j)
+        Next j
+        If V_plus_i(i) > 0 Then
+            Z_plus_i(i) = Z_plus_i(i) / V_plus_i(i)
+        Else
+            Z_plus_i(i) = 0
+        End If
+    Next i
+    ' Âû÷èñëåíèå Z_i_plus(num)
+    Z_i_plus(num) = 0
+    For i = 0 To N1 - 1
+        Z_i_plus(num) = Z_i_plus(num) + V(i, num) * Z(i, num)
+    Next i
+    If V_i_plus(num) > 0 Then
+        Z_i_plus(num) = Z_i_plus(num) / V_i_plus(num)
+    Else
+        Z_i_plus(num) = 0
+    End If
+
+    ' Âû÷èñëåíèå Z_i(num)
+    Z_i(num) = 0
+    For i = 0 To N1 - 1
+        Z_i(num) = Z_i(num) + V(i, num) * Z_plus_i(i)
+    Next i
+    If V_i_plus(num) > 0 Then
+        Z_i(num) = Z_i(num) / V_i_plus(num)
+    Else
+        Z_i(num) = 0
+    End If
+
+    ' Íåïîñðåäñòâåííîå âû÷èñëåíèå Ind2(num)
+    If Z_i(num) > 0 Then
+        Ind2(num) = Z_i_plus(num) / Z_i(num)
+    Else
+        Ind2(num) = 0
+    End If
+    Worksheets(List_Name_1).Cells(num + 2, 5).Value = Ind2(num)
+Next num
+
+Worksheets(List_Name_1).Activate
+End Sub
+
+
+
+в чем разница, ы меня проблема алгоритмы не дают одинаковый результат. эталон на бейсике. постгрес надо привести к этому эталону. в ччем расхождений . исправлять весь код не надо. точечно.  
+    -- DROP FUNCTION actuary.glm_calc_main();
+
+CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_n1 INTEGER;
+    v_n2 INTEGER;
+    v_eps NUMERIC := 0.000001;
+    v_dist NUMERIC := 1;
+    v_iter INTEGER := 0;
+    v_max_iter INTEGER := 10000;
+    v_i INTEGER;
+    v_j INTEGER;
+    v_s1 NUMERIC;
+    v_s2 NUMERIC;
+    v_k1_prev NUMERIC[];
+    v_k2_prev NUMERIC[];
+    v_k1_curr NUMERIC[];
+    v_k2_curr NUMERIC[];
+    v_action_months INTEGER[];
+    v_calendar_months INTEGER[];
+    v_action_month INTEGER;
+    v_calendar_month INTEGER;
+    v_k1_value NUMERIC; -- Значение K1 для текущего индекса
+    v_k2_value NUMERIC; -- Значение K2 для текущего индекса
+BEGIN
+    -- Получаем уникальные месяцы действия
+    SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
+    INTO v_action_months
+    FROM actuary.glm_data;
+    
+    -- Получаем уникальные календарные месяцы
+    SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
+    INTO v_calendar_months
+    FROM actuary.glm_data;
+    
+    v_n1 := COALESCE(array_length(v_action_months, 1), 0);
+    v_n2 := COALESCE(array_length(v_calendar_months, 1), 0);
+    
+    IF v_n1 = 0 OR v_n2 = 0 THEN
+        RAISE NOTICE 'Нет данных для расчета';
+        RETURN;
+    END IF;
+    
+    -- Создаем временную матрицу данных
+    DROP TABLE IF EXISTS temp_matrix;
+    CREATE TEMP TABLE temp_matrix AS
+    SELECT 
+        "Месяц действия",
+        "Месяц календарный",
+        "Exp" AS v,
+        "MCL" AS s
+    FROM actuary.glm_data;
+    
+    CREATE INDEX idx_tm_action ON temp_matrix ("Месяц действия");
+    CREATE INDEX idx_tm_calendar ON temp_matrix ("Месяц календарный");
+    
+    -- Инициализация массивов
+    v_k1_prev := array_fill(1, ARRAY[v_n1]);
+    v_k1_curr := array_fill(1, ARRAY[v_n1]);
+    v_k2_prev := array_fill(1, ARRAY[v_n2]);
+    v_k2_curr := array_fill(1, ARRAY[v_n2]);
+    
+    RAISE NOTICE 'Начинаем итеративный расчет (N1=%, N2=%)...', v_n1, v_n2;
+    
+    WHILE v_dist > v_eps AND v_iter < v_max_iter LOOP
+        v_iter := v_iter + 1;
+        
+        -- Обновляем K1 (по месяцам действия)
+        FOR v_i IN 1..v_n1 LOOP
+            v_action_month := v_action_months[v_i];
+            v_s1 := 0;
+            v_s2 := 0;
+            
+            FOR v_j IN 1..v_n2 LOOP
+                v_calendar_month := v_calendar_months[v_j];
+                
+                -- ИСПРАВЛЕНИЕ: проверяем, что знаменатель не равен нулю
+                v_k2_value := v_k2_curr[v_j];
+                
+                -- Если K2 = 0, пропускаем эту комбинацию (деление на ноль)
+                IF v_k2_value != 0 THEN
+                    SELECT 
+                        COALESCE(SUM(s / v_k2_value), 0),
+                        COALESCE(SUM(v), 0)
+                    INTO v_s1, v_s2
+                    FROM temp_matrix
+                    WHERE "Месяц действия" = v_action_month
+                      AND "Месяц календарный" = v_calendar_month;
+                END IF;
+            END LOOP;
+            
+            IF v_s2 > 0 THEN
+                v_k1_curr[v_i] := v_s1 / v_s2;
+            ELSE
+                v_k1_curr[v_i] := 1; -- Если нет данных, оставляем 1
+            END IF;
+        END LOOP;
+        
+        -- Обновляем K2 (по календарным месяцам)
+        FOR v_j IN 1..v_n2 LOOP
+            v_calendar_month := v_calendar_months[v_j];
+            v_s1 := 0;
+            v_s2 := 0;
+            
+            FOR v_i IN 1..v_n1 LOOP
+                v_action_month := v_action_months[v_i];
+                
+                -- ИСПРАВЛЕНИЕ: проверяем, что знаменатель не равен нулю
+                v_k1_value := v_k1_curr[v_i];
+                
+                -- Если K1 = 0, пропускаем эту комбинацию (деление на ноль)
+                IF v_k1_value != 0 THEN
+                    SELECT 
+                        COALESCE(SUM(s / v_k1_value), 0),
+                        COALESCE(SUM(v), 0)
+                    INTO v_s1, v_s2
+                    FROM temp_matrix
+                    WHERE "Месяц действия" = v_action_month
+                      AND "Месяц календарный" = v_calendar_month;
+                END IF;
+            END LOOP;
+            
+            IF v_s2 > 0 THEN
+                v_k2_curr[v_j] := v_s1 / v_s2;
+            ELSE
+                v_k2_curr[v_j] := 1; -- Если нет данных, оставляем 1
+            END IF;
+        END LOOP;
+        
+        -- Вычисляем норму ошибки
+        v_dist := actuary.glm_norma(
+            v_k1_curr, v_k1_prev,
+            v_k2_curr, v_k2_prev,
+            v_n1, v_n2
+        );
+        
+        v_k1_prev := v_k1_curr;
+        v_k2_prev := v_k2_curr;
+        
+        IF v_iter % 100 = 0 THEN
+            RAISE NOTICE 'Итерация %, ошибка: %', v_iter, v_dist;
+        END IF;
+    END LOOP;
+    
+    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', v_iter, v_dist;
+    
+    -- Сохраняем K1
+    FOR v_i IN 1..v_n1 LOOP
+        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
+        VALUES (v_action_months[v_i], v_k1_curr[v_i]);
+    END LOOP;
+    
+    -- Сохраняем K2
+    FOR v_j IN 1..v_n2 LOOP
+        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
+        VALUES (v_calendar_months[v_j], v_k2_curr[v_j]);
+    END LOOP;
+    
+    UPDATE actuary.glm_result SET "Базовая частота" = 1;
+    
+    DROP TABLE IF EXISTS temp_matrix;
+    
+    RAISE NOTICE 'Результаты сохранены.';
+END;
+$function$
+;
+
+-- Permissions
+
+ALTER FUNCTION actuary.glm_calc_main() OWNER TO mskazakov;
+GRANT ALL ON FUNCTION actuary.glm_calc_main() TO mskazakov;
+
+
