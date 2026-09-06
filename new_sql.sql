@@ -1,250 +1,147 @@
-CREATE OR REPLACE FUNCTION actuary.glm_calc_main()
- RETURNS void
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    v_n1 INTEGER;
-    v_n2 INTEGER;
-    v_eps NUMERIC := 0.000001;
-    v_dist NUMERIC := 1;
-    v_iter INTEGER := 0;
-    v_max_iter INTEGER := 1000;
-    v_i INTEGER;
-    v_j INTEGER;
-    v_action_months INTEGER[];
-    v_calendar_months INTEGER[];
-    
-    -- Массивы для данных
-    v_v NUMERIC[][];
-    v_s NUMERIC[][];
-    
-    -- Массивы для индексов
-    v_k1_prev NUMERIC[];
-    v_k1_curr NUMERIC[];
-    v_k2_prev NUMERIC[];
-    v_k2_curr NUMERIC[];
-    
-    -- Временные переменные
-    v_sum1 NUMERIC;
-    v_sum2 NUMERIC;
-    v_sum3 NUMERIC;
-    v_sum4 NUMERIC;
-    v_vi NUMERIC;
-    v_si NUMERIC;
-    v_z_plus_i_val NUMERIC;
-    v_z_plus_j_val NUMERIC;
-    v_action_month INTEGER;
-    v_calendar_month INTEGER;
-BEGIN
-    -- Получаем уникальные месяцы
-    SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
-    INTO v_action_months
-    FROM actuary.glm_data;
-    
-    SELECT ARRAY_AGG(DISTINCT "Месяц календарный" ORDER BY "Месяц календарный")
-    INTO v_calendar_months
-    FROM actuary.glm_data;
-    
-    v_n1 := COALESCE(array_length(v_action_months, 1), 0);
-    v_n2 := COALESCE(array_length(v_calendar_months, 1), 0);
-    
-    IF v_n1 = 0 OR v_n2 = 0 THEN
-        RAISE NOTICE 'Нет данных для расчета';
-        RETURN;
-    END IF;
+Option Explicit
+Dim i As Integer
+Dim j As Integer
+Dim k As Integer
 
-    -- Инициализация матриц
-    v_v := array_fill(0, ARRAY[v_n1, v_n2]);
-    v_s := array_fill(0, ARRAY[v_n1, v_n2]);
+Dim N1 As Integer 'количество групп по месяцу действия
+Dim N2 As Integer 'количество групп по месяцу календарному
+
+Dim Z() As Double 'матрица значений нормированного убытка
+Dim V() As Double 'матрица значений экспозиции (объема)
+Dim S() As Double 'матрица значений убытка
+
+Dim F1() As String
+Dim F2() As String
+
+Dim K1() As Double 'вектор значений коэффициентов по месяцу действия
+Dim tempK1() As Double 'текущий вектор значений коэффициентов по месяцу действия
+Dim K2() As Double 'вектор значений коэффициентов по месяцу календарному
+Dim tempK2() As Double 'текущий вектор значений коэффициентов по месяцу календарному
+
+Dim dist As Double 'величина ошибки при текущей итерации
+Dim eps As Double 'допустимая ошибка (критерий прекращения итераций)
+
+Dim s1, s2 As Double
+
+Function norma(A, tempA, B, tempB, N1, N2) As Double
+
+s1 = 0
+s2 = 0
+For i = 0 To N1 - 1
+    s1 = s1 + (A(i) - tempA(i)) ^ 2
+Next i
+For i = 0 To N2 - 1
+    s2 = s2 + (B(i) - tempB(i)) ^ 2
+Next i
+norma = Sqr(s1 + s2)
+
+End Function
+
+Sub Расчет()
+Dim Count As Integer
+Dim num As Integer
+Dim g1, g2 As String
+
+Worksheets("Result").Activate
+
+N1 = Application.WorksheetFunction.CountA(Columns(1)) - 1
+N2 = Application.WorksheetFunction.CountA(Columns(3)) - 1
+eps = 0.000001
+
+ReDim Z(N1 - 1, N2 - 1)
+ReDim V(N1 - 1, N2 - 1)
+ReDim S(N1 - 1, N2 - 1)
+ReDim K1(N1 - 1)
+ReDim tempK1(N1 - 1)
+ReDim K2(N2 - 1)
+ReDim tempK2(N2 - 1)
+ReDim F1(N1 - 1)
+ReDim F2(N2 - 1)
+For i = 0 To N1 - 1
+    F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value)
+Next i
+For i = 0 To N2 - 1
+    F2(i) = CStr(Worksheets("Result").Cells(i + 2, 3).Value)
+Next i
+
+Worksheets("Data").Activate
+Count = Application.WorksheetFunction.CountA(Columns(1))
+For num = 2 To Count
+    g1 = Worksheets("Data").Cells(num, 1).Value
+    g2 = Worksheets("Data").Cells(num, 2).Value
+    For i = 0 To N1 - 1
+        For j = 0 To N2 - 1
+            If g1 = F1(i) And g2 = F2(j) Then
+                V(i, j) = Worksheets("Data").Cells(num, 4).Value
+                S(i, j) = Worksheets("Data").Cells(num, 3).Value
+                If V(i, j) > 0 Then
+                    Z(i, j) = S(i, j) / V(i, j)
+                Else
+                    Z(i, j) = 0
+                End If
+            End If
+        Next j
+    Next i
+Next num
+
+'Метод максимального правдоподобия
+For i = 0 To N1 - 1
+    tempK1(i) = 1
+Next i
+For j = 0 To N2 - 1
+    tempK2(j) = 1
+Next j
+
+For j = 0 To N2 - 1 'задаем начальный единичный вектор для итераций
+    K2(j) = 1
+Next j
+
+dist = 1
+
+While dist > eps
+    For i = 0 To N1 - 1
+        s1 = 0
+        s2 = 0
+        For j = 0 To N2 - 1
+            s1 = s1 + S(i, j) / K2(j)
+            s2 = s2 + V(i, j)
+        Next j
+        K1(i) = s1 / s2
+    Next i
     
-    -- Заполняем матрицы
-    FOR v_i IN 1..v_n1 LOOP
-        v_action_month := v_action_months[v_i];
-        FOR v_j IN 1..v_n2 LOOP
-            v_calendar_month := v_calendar_months[v_j];
-            
-            SELECT COALESCE("Exp", 0), COALESCE("MCL", 0)
-            INTO v_vi, v_si
-            FROM actuary.glm_data
-            WHERE "Месяц действия" = v_action_month
-              AND "Месяц календарный" = v_calendar_month;
-            
-            v_v[v_i][v_j] := v_vi;
-            v_s[v_i][v_j] := v_si;
-        END LOOP;
-    END LOOP;
+    For j = 0 To N2 - 1
+        s1 = 0
+        s2 = 0
+        For i = 0 To N1 - 1
+                s1 = s1 + S(i, j) / K1(i)
+                s2 = s2 + V(i, j)
+        Next i
+        K2(j) = s1 / s2
+    Next j
     
-    -- Инициализация индексов (начинаем с 1)
-    v_k1_prev := array_fill(1, ARRAY[v_n1]);
-    v_k1_curr := array_fill(1, ARRAY[v_n1]);
-    v_k2_prev := array_fill(1, ARRAY[v_n2]);
-    v_k2_curr := array_fill(1, ARRAY[v_n2]);
-    
-    RAISE NOTICE 'Начинаем итеративный расчет (N1=%, N2=%)...', v_n1, v_n2;
-    
-    -- Итеративный процесс
-    WHILE v_dist > v_eps AND v_iter < v_max_iter LOOP
-        v_iter := v_iter + 1;
         
-        -- Обновляем K1 (по месяцам действия)
-        FOR v_i IN 1..v_n1 LOOP
-            v_sum1 := 0; -- Числитель
-            v_sum2 := 0; -- Знаменатель для числителя
-            v_sum3 := 0; -- Числитель для знаменателя
-            v_sum4 := 0; -- Знаменатель для знаменателя
-            
-            FOR v_j IN 1..v_n2 LOOP
-                IF v_v[v_i][v_j] > 0 THEN
-                    -- Z = S / V
-                    v_z_plus_i_val := v_s[v_i][v_j] / v_v[v_i][v_j];
-                    v_sum1 := v_sum1 + v_v[v_i][v_j] * v_z_plus_i_val;
-                    v_sum2 := v_sum2 + v_v[v_i][v_j];
-                END IF;
-            END LOOP;
-            
-            -- Вычисляем Z_plus_i для каждого столбца
-            FOR v_j IN 1..v_n2 LOOP
-                v_sum1 := 0;
-                v_sum2 := 0;
-                
-                FOR v_ii IN 1..v_n1 LOOP
-                    IF v_v[v_ii][v_j] > 0 THEN
-                        v_z_plus_i_val := v_s[v_ii][v_j] / v_v[v_ii][v_j];
-                        v_sum1 := v_sum1 + v_v[v_ii][v_j] * v_z_plus_i_val;
-                        v_sum2 := v_sum2 + v_v[v_ii][v_j];
-                    END IF;
-                END LOOP;
-                
-                IF v_sum2 > 0 THEN
-                    v_z_plus_i_val := v_sum1 / v_sum2;
-                ELSE
-                    v_z_plus_i_val := 0;
-                END IF;
-                
-                -- Добавляем к Z_i
-                v_sum3 := v_sum3 + v_v[v_i][v_j] * v_z_plus_i_val;
-                v_sum4 := v_sum4 + v_v[v_i][v_j];
-            END LOOP;
-            
-            -- Нормализуем
-            IF v_sum2 > 0 AND v_sum4 > 0 THEN
-                v_z_plus_i_val := v_sum1 / v_sum2; -- Z_i_plus
-                v_z_plus_j_val := v_sum3 / v_sum4; -- Z_i
-                IF v_z_plus_j_val > 0 THEN
-                    v_k1_curr[v_i] := v_z_plus_i_val / v_z_plus_j_val;
-                ELSE
-                    v_k1_curr[v_i] := 1;
-                END IF;
-            ELSE
-                v_k1_curr[v_i] := 1;
-            END IF;
-        END LOOP;
-        
-        -- Обновляем K2 (по календарным месяцам)
-        FOR v_j IN 1..v_n2 LOOP
-            v_sum1 := 0;
-            v_sum2 := 0;
-            v_sum3 := 0;
-            v_sum4 := 0;
-            
-            FOR v_i IN 1..v_n1 LOOP
-                IF v_v[v_i][v_j] > 0 THEN
-                    v_z_plus_j_val := v_s[v_i][v_j] / v_v[v_i][v_j];
-                    v_sum1 := v_sum1 + v_v[v_i][v_j] * v_z_plus_j_val;
-                    v_sum2 := v_sum2 + v_v[v_i][v_j];
-                END IF;
-            END LOOP;
-            
-            -- Вычисляем Z_plus_j для каждой строки
-            FOR v_i IN 1..v_n1 LOOP
-                v_sum1 := 0;
-                v_sum2 := 0;
-                
-                FOR v_jj IN 1..v_n2 LOOP
-                    IF v_v[v_i][v_jj] > 0 THEN
-                        v_z_plus_j_val := v_s[v_i][v_jj] / v_v[v_i][v_jj];
-                        v_sum1 := v_sum1 + v_v[v_i][v_jj] * v_z_plus_j_val;
-                        v_sum2 := v_sum2 + v_v[v_i][v_jj];
-                    END IF;
-                END LOOP;
-                
-                IF v_sum2 > 0 THEN
-                    v_z_plus_j_val := v_sum1 / v_sum2;
-                ELSE
-                    v_z_plus_j_val := 0;
-                END IF;
-                
-                v_sum3 := v_sum3 + v_v[v_i][v_j] * v_z_plus_j_val;
-                v_sum4 := v_sum4 + v_v[v_i][v_j];
-            END LOOP;
-            
-            IF v_sum2 > 0 AND v_sum4 > 0 THEN
-                v_z_plus_j_val := v_sum1 / v_sum2;
-                v_z_plus_i_val := v_sum3 / v_sum4;
-                IF v_z_plus_i_val > 0 THEN
-                    v_k2_curr[v_j] := v_z_plus_j_val / v_z_plus_i_val;
-                ELSE
-                    v_k2_curr[v_j] := 1;
-                END IF;
-            ELSE
-                v_k2_curr[v_j] := 1;
-            END IF;
-        END LOOP;
-        
-        -- Вычисляем ошибку
-        v_dist := 0;
-        FOR v_i IN 1..v_n1 LOOP
-            v_dist := v_dist + ABS(v_k1_curr[v_i] - v_k1_prev[v_i]);
-        END LOOP;
-        FOR v_j IN 1..v_n2 LOOP
-            v_dist := v_dist + ABS(v_k2_curr[v_j] - v_k2_prev[v_j]);
-        END LOOP;
-        
-        v_k1_prev := v_k1_curr;
-        v_k2_prev := v_k2_curr;
-        
-        IF v_iter % 10 = 0 THEN
-            RAISE NOTICE 'Итерация %, ошибка: %', v_iter, v_dist;
-        END IF;
-    END LOOP;
+    dist = norma(K1, tempK1, K2, tempK2, N1, N2)
     
-    RAISE NOTICE 'Расчет завершен. Итераций: %, ошибка: %', v_iter, v_dist;
+    For i = 0 To N1 - 1
+        tempK1(i) = K1(i)
+    Next i
     
-    -- Сохраняем результаты (нормализуем чтобы сумма K1 = N1, как в VBA)
-    -- Это важно! В VBA индексы нормализуются
-    v_sum1 := 0;
-    FOR v_i IN 1..v_n1 LOOP
-        v_sum1 := v_sum1 + v_k1_curr[v_i];
-    END LOOP;
-    
-    IF v_sum1 > 0 THEN
-        FOR v_i IN 1..v_n1 LOOP
-            v_k1_curr[v_i] := v_k1_curr[v_i] * v_n1 / v_sum1;
-        END LOOP;
-    END IF;
-    
-    v_sum1 := 0;
-    FOR v_j IN 1..v_n2 LOOP
-        v_sum1 := v_sum1 + v_k2_curr[v_j];
-    END LOOP;
-    
-    IF v_sum1 > 0 THEN
-        FOR v_j IN 1..v_n2 LOOP
-            v_k2_curr[v_j] := v_k2_curr[v_j] * v_n2 / v_sum1;
-        END LOOP;
-    END IF;
-    
-    -- Сохраняем результаты
-    FOR v_i IN 1..v_n1 LOOP
-        INSERT INTO actuary.glm_result ("Месяц действия", "K1")
-        VALUES (v_action_months[v_i], v_k1_curr[v_i]);
-    END LOOP;
-    
-    FOR v_j IN 1..v_n2 LOOP
-        INSERT INTO actuary.glm_result ("Месяц календарный", "K2")
-        VALUES (v_calendar_months[v_j], v_k2_curr[v_j]);
-    END LOOP;
-    
-    RAISE NOTICE 'Результаты сохранены.';
-END;
-$function$;
+    For j = 0 To N2 - 1
+        tempK2(j) = K2(j)
+    Next j
+     
+Wend
+
+For i = 2 To 1 + N1
+    Worksheets("Result").Cells(i, 2).Value = K1(i - 2)
+Next i
+For j = 2 To 1 + N2
+    Worksheets("Result").Cells(j, 4).Value = K2(j - 2)
+Next j
+
+Worksheets("Result").Cells(2, 5).Value = 1
+
+Worksheets("Result").Activate
+End Sub
+
+
