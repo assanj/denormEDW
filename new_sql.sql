@@ -6,23 +6,23 @@ Dim k As Integer
 
 Dim foundCount As Integer
 
-Dim N1 As Integer 'êîëè÷åñòâî ãðóïï ïî ìåñÿöó äåéñòâèÿ
-Dim N2 As Integer 'êîëè÷åñòâî ãðóïï ïî ìåñÿöó êàëåíäàðíîìó
+Dim N1 As Integer 'количество групп по месяцу действия
+Dim N2 As Integer 'количество групп по месяцу календарному
 
-Dim Z() As Double 'ìàòðèöà çíà÷åíèé íîðìèðîâàííîãî óáûòêà
-Dim V() As Double 'ìàòðèöà çíà÷åíèé ýêñïîçèöèè (îáúåìà)
-Dim S() As Double 'ìàòðèöà çíà÷åíèé óáûòêà
+Dim Z() As Double 'матрица значений нормированного убытка
+Dim V() As Double 'матрица значений экспозиции (объема)
+Dim S() As Double 'матрица значений убытка
 
 Dim F1() As String
 Dim F2() As String
 
-Dim K1() As Double 'âåêòîð çíà÷åíèé êîýôôèöèåíòîâ ïî ìåñÿöó äåéñòâèÿ
-Dim tempK1() As Double 'òåêóùèé âåêòîð çíà÷åíèé êîýôôèöèåíòîâ ïî ìåñÿöó äåéñòâèÿ
-Dim K2() As Double 'âåêòîð çíà÷åíèé êîýôôèöèåíòîâ ïî ìåñÿöó êàëåíäàðíîìó
-Dim tempK2() As Double 'òåêóùèé âåêòîð çíà÷åíèé êîýôôèöèåíòîâ ïî ìåñÿöó êàëåíäàðíîìó
+Dim K1() As Double 'вектор значений коэффициентов по месяцу действия
+Dim tempK1() As Double 'текущий вектор значений коэффициентов по месяцу действия
+Dim K2() As Double 'вектор значений коэффициентов по месяцу календарному
+Dim tempK2() As Double 'текущий вектор значений коэффициентов по месяцу календарному
 
-Dim dist As Double 'âåëè÷èíà îøèáêè ïðè òåêóùåé èòåðàöèè
-Dim eps As Double 'äîïóñòèìàÿ îøèáêà (êðèòåðèé ïðåêðàùåíèÿ èòåðàöèé)
+Dim dist As Double 'величина ошибки при текущей итерации
+Dim eps As Double 'допустимая ошибка (критерий прекращения итераций)
 
 Dim s1, s2 As Double
 
@@ -40,7 +40,7 @@ norma = Sqr(s1 + s2)
 
 End Function
 
-Sub Ðàñ÷åò()
+Sub Расчет()
 Dim Count As Integer
 Dim num As Integer
 Dim g1, g2 As String
@@ -62,7 +62,7 @@ ReDim F1(N1 - 1)
 ReDim F2(N2 - 1)
 
 
-' Ïîñëå èíèöèàëèçàöèè âñåõ ìàññèâîâ
+' После инициализации всех массивов
 For i = 0 To N1 - 1
     tempK1(i) = 1
 Next i
@@ -73,7 +73,7 @@ For j = 0 To N2 - 1
     K2(j) = 1
 Next j
 
-' ÄÎÁÀÂÜÒÅ ÏÐÎÂÅÐÊÓ:
+' ДОБАВЬТЕ ПРОВЕРКУ:
 MsgBox "tempK1(0)=" & tempK1(0) & ", tempK1(12)=" & tempK1(12) & vbCrLf & _
        "tempK2(0)=" & tempK2(0) & ", tempK2(11)=" & tempK2(11) & vbCrLf & _
        "K2(0)=" & K2(0) & ", K2(11)=" & K2(11)
@@ -81,16 +81,16 @@ MsgBox "tempK1(0)=" & tempK1(0) & ", tempK1(12)=" & tempK1(12) & vbCrLf & _
 For i = 0 To N1 - 1
     F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value)
 Next i
-' Ïîñëå çàïîëíåíèÿ F1
+' После заполнения F1
 For i = 0 To N1 - 1
     F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value)
 Next i
-' Ïîñëå çàïîëíåíèÿ F2
+' После заполнения F2
 For i = 0 To N2 - 1
     F2(i) = CStr(Worksheets("Result").Cells(i + 2, 3).Value)
 Next i
 
-' ÄÎÁÀÂÜÒÅ ÏÐÎÂÅÐÊÓ:
+' ДОБАВЬТЕ ПРОВЕРКУ:
 MsgBox "F1(0)=" & F1(0) & ", F1(12)=" & F1(12) & vbCrLf & _
        "F2(0)=" & F2(0) & ", F2(11)=" & F2(11)
 For i = 0 To N2 - 1
@@ -106,7 +106,7 @@ For num = 2 To Count
     For i = 0 To N1 - 1
         For j = 0 To N2 - 1
             If g1 = F1(i) And g2 = F2(j) Then
-                foundCount = foundCount + 1  ' <-- ÄÎÁÀÂÜÒÅ ÝÒÓ ÑÒÐÎÊÓ
+                foundCount = foundCount + 1  ' <-- ДОБАВЬТЕ ЭТУ СТРОКУ
 
                 V(i, j) = Worksheets("Data").Cells(num, 4).Value
                 S(i, j) = Worksheets("Data").Cells(num, 3).Value
@@ -120,11 +120,11 @@ For num = 2 To Count
     Next i
 Next num
 
-' Ïîñëå öèêëà äîáàâüòå:
-MsgBox "Íàéäåíî ñîîòâåòñòâèé: " & foundCount & vbCrLf & _
-       "Îæèäàëîñü: " & N1 * N2 & " (13*12=156)"
+' После цикла добавьте:
+MsgBox "Найдено соответствий: " & foundCount & vbCrLf & _
+       "Ожидалось: " & N1 * N2 & " (13*12=156)"
 
-'Ìåòîä ìàêñèìàëüíîãî ïðàâäîïîäîáèÿ
+'Метод максимального правдоподобия
 For i = 0 To N1 - 1
     tempK1(i) = 1
 Next i
@@ -132,7 +132,7 @@ For j = 0 To N2 - 1
     tempK2(j) = 1
 Next j
 
-For j = 0 To N2 - 1 'çàäàåì íà÷àëüíûé åäèíè÷íûé âåêòîð äëÿ èòåðàöèé
+For j = 0 To N2 - 1 'задаем начальный единичный вектор для итераций
     K2(j) = 1
 Next j
 
@@ -183,4 +183,5 @@ Worksheets("Result").Cells(2, 5).Value = 1
 
 Worksheets("Result").Activate
 End Sub
+
 
