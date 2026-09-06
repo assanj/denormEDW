@@ -38,7 +38,7 @@ norma = Sqr(s1 + s2)
 End Function
 
 Sub Расчет()
-On Error GoTo ErrorHandler  ' ДОБАВЛЕНО: обработчик ошибок
+On Error GoTo ErrorHandler
 
 Dim Count As Integer
 Dim num As Integer
@@ -49,32 +49,51 @@ Dim foundCount As Integer
 Dim sumV As Double
 Dim sumS As Double
 
-Worksheets("Result").Activate
+' ========================================
+' ПОЛНАЯ ОЧИСТКА ПЕРЕД ЗАПУСКОМ
+' ========================================
 
-' ===== ДИАГНОСТИКА: очищаем колонки для вывода =====
+' 1. Очищаем все массивы
+Erase Z
+Erase V
+Erase S
+Erase K1
+Erase tempK1
+Erase K2
+Erase tempK2
+Erase F1
+Erase F2
+
+' 2. Очищаем колонки с результатами
+Worksheets("Result").Activate
+Columns("B:B").ClearContents
+Columns("D:D").ClearContents
 Columns("G:Z").ClearContents
-rowDiag = 1
+
+' 3. Записываем заголовки
+Cells(1, 1).Value = "Месяц действия"
+Cells(1, 2).Value = "K1"
+Cells(1, 3).Value = "Месяц календарный"
+Cells(1, 4).Value = "K2"
+Cells(1, 5).Value = "Базовая частота"
+
+' ========================================
+' ОПРЕДЕЛЕНИЕ РАЗМЕРНОСТЕЙ
+' ========================================
 
 N1 = Application.WorksheetFunction.CountA(Columns(1)) - 1
 N2 = Application.WorksheetFunction.CountA(Columns(3)) - 1
 eps = 0.000001
-
-' ===== ДИАГНОСТИКА: выводим N1, N2 =====
-Cells(rowDiag, 7).Value = "N1"
-Cells(rowDiag, 8).Value = N1
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "N2"
-Cells(rowDiag, 8).Value = N2
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "eps"
-Cells(rowDiag, 8).Value = eps
-rowDiag = rowDiag + 2
 
 ' Проверка: если N1 или N2 = 0, то выходим
 If N1 = 0 Or N2 = 0 Then
     MsgBox "Ошибка: N1 или N2 равны 0! Проверьте данные на листе Result"
     Exit Sub
 End If
+
+' ========================================
+' ПЕРЕОПРЕДЕЛЕНИЕ МАССИВОВ
+' ========================================
 
 ReDim Z(N1 - 1, N2 - 1)
 ReDim V(N1 - 1, N2 - 1)
@@ -86,29 +105,25 @@ ReDim tempK2(N2 - 1)
 ReDim F1(N1 - 1)
 ReDim F2(N2 - 1)
 
-' ===== ДИАГНОСТИКА: выводим F1 и F2 =====
-Cells(rowDiag, 7).Value = "F1 (месяцы действия)"
-rowDiag = rowDiag + 1
+' ========================================
+' ЗАПОЛНЕНИЕ F1 и F2
+' ========================================
+
 For i = 0 To N1 - 1
     F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value)
-    Cells(rowDiag + i, 7).Value = "F1(" & i & ")"
-    Cells(rowDiag + i, 8).Value = F1(i)
 Next i
-rowDiag = rowDiag + N1 + 1
 
-Cells(rowDiag, 7).Value = "F2 (календарные месяцы)"
-rowDiag = rowDiag + 1
 For i = 0 To N2 - 1
     F2(i) = CStr(Worksheets("Result").Cells(i + 2, 3).Value)
-    Cells(rowDiag + i, 7).Value = "F2(" & i & ")"
-    Cells(rowDiag + i, 8).Value = F2(i)
 Next i
-rowDiag = rowDiag + N2 + 2
+
+' ========================================
+' ЧТЕНИЕ ДАННЫХ
+' ========================================
 
 Worksheets("Data").Activate
 Count = Application.WorksheetFunction.CountA(Columns(1))
 
-' Проверка: если Count = 0, то выходим
 If Count = 0 Then
     MsgBox "Ошибка: нет данных на листе Data!"
     Exit Sub
@@ -135,69 +150,40 @@ For num = 2 To Count
     Next i
 Next num
 
-' ===== ДИАГНОСТИКА: выводим количество найденных соответствий =====
-Cells(rowDiag, 7).Value = "Найдено соответствий"
-Cells(rowDiag, 8).Value = foundCount
-Cells(rowDiag, 9).Value = "Ожидалось: " & N1 * N2
-rowDiag = rowDiag + 2
+' Проверка: все ли данные найдены
+If foundCount <> N1 * N2 Then
+    MsgBox "Внимание! Найдено " & foundCount & " соответствий, ожидалось " & N1 * N2
+End If
 
-' ===== ДИАГНОСТИКА: выводим суммы V и S =====
-sumV = 0
-sumS = 0
-For i = 0 To N1 - 1
-    For j = 0 To N2 - 1
-        sumV = sumV + V(i, j)
-        sumS = sumS + S(i, j)
-    Next j
-Next i
+' ========================================
+' ИНИЦИАЛИЗАЦИЯ ИНДЕКСОВ
+' ========================================
 
-Cells(rowDiag, 7).Value = "Сумма V (Exp)"
-Cells(rowDiag, 8).Value = sumV
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "Сумма S (MCL)"
-Cells(rowDiag, 8).Value = sumS
-rowDiag = rowDiag + 2
-
-' ===== ИНИЦИАЛИЗАЦИЯ ИНДЕКСОВ =====
 For i = 0 To N1 - 1
     tempK1(i) = 1
+    K1(i) = 1
 Next i
-For j = 0 To N2 - 1
-    tempK2(j) = 1
-Next j
 
 For j = 0 To N2 - 1
+    tempK2(j) = 1
     K2(j) = 1
 Next j
 
 dist = 1
 iterCount = 0
 
-' ===== ДИАГНОСТИКА: заголовки для итераций =====
-Cells(rowDiag, 7).Value = "=== ИТЕРАЦИИ ==="
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "№"
-Cells(rowDiag, 8).Value = "dist"
-Cells(rowDiag, 9).Value = "K1(0)"
-Cells(rowDiag, 10).Value = "K2(0)"
-rowDiag = rowDiag + 1
+' ========================================
+' ИТЕРАТИВНЫЙ ПРОЦЕСС
+' ========================================
 
-' ===== ИТЕРАТИВНЫЙ ПРОЦЕСС =====
-While dist > eps
+While dist > eps And iterCount < 10000
     iterCount = iterCount + 1
-    
-    ' Защита от бесконечного цикла
-    If iterCount > 10000 Then
-        MsgBox "Превышен лимит итераций (10000)! Возможно, данные не сходятся."
-        Exit While
-    End If
     
     ' Обновляем K1
     For i = 0 To N1 - 1
         s1 = 0
         s2 = 0
         For j = 0 To N2 - 1
-            ' Защита от деления на ноль
             If K2(j) <> 0 Then
                 s1 = s1 + S(i, j) / K2(j)
             End If
@@ -215,7 +201,6 @@ While dist > eps
         s1 = 0
         s2 = 0
         For i = 0 To N1 - 1
-            ' Защита от деления на ноль
             If K1(i) <> 0 Then
                 s1 = s1 + S(i, j) / K1(i)
             End If
@@ -228,19 +213,8 @@ While dist > eps
         End If
     Next j
     
-    ' Вычисляем ошибку
     dist = norma(K1, tempK1, K2, tempK2, N1, N2)
     
-    ' ===== ДИАГНОСТИКА: выводим каждую 5-ю итерацию =====
-    If iterCount Mod 5 = 0 Or iterCount = 1 Then
-        Cells(rowDiag, 7).Value = iterCount
-        Cells(rowDiag, 8).Value = dist
-        Cells(rowDiag, 9).Value = K1(0)
-        Cells(rowDiag, 10).Value = K2(0)
-        rowDiag = rowDiag + 1
-    End If
-    
-    ' Сохраняем текущие значения
     For i = 0 To N1 - 1
         tempK1(i) = K1(i)
     Next i
@@ -251,19 +225,47 @@ While dist > eps
      
 Wend
 
-' ===== ДИАГНОСТИКА: финальный отчет =====
+' ========================================
+' ВЫВОД РЕЗУЛЬТАТОВ
+' ========================================
+
+Worksheets("Result").Activate
+
+For i = 2 To 1 + N1
+    Worksheets("Result").Cells(i, 2).Value = K1(i - 2)
+Next i
+
+For j = 2 To 1 + N2
+    Worksheets("Result").Cells(j, 4).Value = K2(j - 2)
+Next j
+
+Worksheets("Result").Cells(2, 5).Value = 1
+
+' ========================================
+' ДИАГНОСТИКА
+' ========================================
+
+rowDiag = 1
+Cells(rowDiag, 7).Value = "=== ДИАГНОСТИКА ==="
 rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "=== ФИНАЛЬНЫЙ ОТЧЕТ ==="
+Cells(rowDiag, 7).Value = "N1"
+Cells(rowDiag, 8).Value = N1
 rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "Всего итераций"
+Cells(rowDiag, 7).Value = "N2"
+Cells(rowDiag, 8).Value = N2
+rowDiag = rowDiag + 1
+Cells(rowDiag, 7).Value = "Найдено соответствий"
+Cells(rowDiag, 8).Value = foundCount
+rowDiag = rowDiag + 1
+Cells(rowDiag, 7).Value = "Итераций"
 Cells(rowDiag, 8).Value = iterCount
 rowDiag = rowDiag + 1
 Cells(rowDiag, 7).Value = "Финальная ошибка"
 Cells(rowDiag, 8).Value = dist
 rowDiag = rowDiag + 2
 
-' ===== ДИАГНОСТИКА: выводим все K1 и K2 =====
-Cells(rowDiag, 7).Value = "=== ВСЕ K1 ==="
+' Выводим все K1
+Cells(rowDiag, 7).Value = "K1 (все значения)"
 rowDiag = rowDiag + 1
 For i = 0 To N1 - 1
     Cells(rowDiag + i, 7).Value = "K1(" & i & ")"
@@ -271,48 +273,25 @@ For i = 0 To N1 - 1
 Next i
 rowDiag = rowDiag + N1 + 1
 
-Cells(rowDiag, 7).Value = "=== ВСЕ K2 ==="
+' Выводим все K2
+Cells(rowDiag, 7).Value = "K2 (все значения)"
 rowDiag = rowDiag + 1
 For j = 0 To N2 - 1
     Cells(rowDiag + j, 7).Value = "K2(" & j & ")"
     Cells(rowDiag + j, 8).Value = K2(j)
 Next j
 
-' ===== ВЫВОД РЕЗУЛЬТАТОВ =====
-For i = 2 To 1 + N1
-    Worksheets("Result").Cells(i, 2).Value = K1(i - 2)
-Next i
-For j = 2 To 1 + N2
-    Worksheets("Result").Cells(j, 4).Value = K2(j - 2)
-Next j
-
-Worksheets("Result").Cells(2, 5).Value = 1
-
-' ===== ДИАГНОСТИКА: автоподбор ширины =====
 Columns("G:Z").AutoFit
 
 Worksheets("Result").Activate
 
 MsgBox "Расчет завершен!" & vbCrLf & _
        "Итераций: " & iterCount & vbCrLf & _
-       "Финальная ошибка: " & dist & vbCrLf & _
-       "Смотрите диагностику в колонках G-Z"
+       "Финальная ошибка: " & dist
 
-Exit Sub  ' Выходим, чтобы не выполнять обработчик ошибок
+Exit Sub
 
 ErrorHandler:
-    ' ===== ВЫВОД ОШИБКИ =====
-    MsgBox "Произошла ошибка:" & vbCrLf & _
-           "Номер: " & Err.Number & vbCrLf & _
-           "Описание: " & Err.Description & vbCrLf & _
-           "Строка: " & Erl
-           
-    ' Выводим ошибку на лист
-    Worksheets("Result").Activate
-    Cells(rowDiag, 7).Value = "!!! ОШИБКА !!!"
-    Cells(rowDiag, 8).Value = Err.Number
-    Cells(rowDiag, 9).Value = Err.Description
-    Columns("G:Z").AutoFit
-    
+    MsgBox "Ошибка: " & Err.Description & vbCrLf & "Номер: " & Err.Number
     Resume Next
 End Sub
