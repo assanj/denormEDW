@@ -35,11 +35,14 @@ DECLARE
     v_z_i NUMERIC[];
     v_z_j NUMERIC[];
     
+    -- Скалярные переменные для временных расчетов
     v_sum1 NUMERIC;
     v_sum2 NUMERIC;
     v_sum3 NUMERIC;
     v_vi NUMERIC;
     v_si NUMERIC;
+    v_z_plus_i_val NUMERIC;  -- Переименовано, чтобы не конфликтовать с массивом
+    v_z_plus_j_val NUMERIC;  -- Переименовано, чтобы не конфликтовать с массивом
 BEGIN
     -- Получаем уникальные месяцы
     SELECT ARRAY_AGG(DISTINCT "Месяц действия" ORDER BY "Месяц действия")
@@ -58,7 +61,6 @@ BEGIN
         RETURN;
     END IF;
 
-
     -- Создаем временную матрицу данных
     DROP TABLE IF EXISTS temp_matrix;
     CREATE TEMP TABLE temp_matrix AS
@@ -69,7 +71,6 @@ BEGIN
         "MCL" AS s
     FROM actuary.glm_data;
 
-    
     -- Инициализация матриц
     v_v := array_fill(0, ARRAY[v_n1, v_n2]);
     v_s := array_fill(0, ARRAY[v_n1, v_n2]);
@@ -128,13 +129,13 @@ BEGIN
             END LOOP;
             
             IF v_sum2 > 0 THEN
-                v_z_i_plus := v_sum1 / v_sum2;
+                v_z_i_plus[v_i] := v_sum1 / v_sum2;
             ELSE
-                v_z_i_plus := 0;
+                v_z_i_plus[v_i] := 0;
             END IF;
             
-            -- Вычисляем Z_plus_i для каждого столбца
-            v_z_i := 0;
+            -- Вычисляем Z_i (знаменатель для Ind1)
+            v_z_i[v_i] := 0;
             FOR v_j IN 1..v_n2 LOOP
                 -- Сначала вычисляем Z_plus_i(j) - взвешенное среднее по столбцу j
                 v_sum1 := 0;
@@ -147,13 +148,13 @@ BEGIN
                 END LOOP;
                 
                 IF v_sum2 > 0 THEN
-                    v_z_plus_i := v_sum1 / v_sum2;
+                    v_z_plus_i_val := v_sum1 / v_sum2;
                 ELSE
-                    v_z_plus_i := 0;
+                    v_z_plus_i_val := 0;
                 END IF;
                 
                 -- Добавляем к Z_i
-                v_z_i := v_z_i + v_v[v_i][v_j] * v_z_plus_i;
+                v_z_i[v_i] := v_z_i[v_i] + v_v[v_i][v_j] * v_z_plus_i_val;
             END LOOP;
             
             -- Нормализуем Z_i
@@ -163,14 +164,14 @@ BEGIN
             END LOOP;
             
             IF v_sum2 > 0 THEN
-                v_z_i := v_z_i / v_sum2;
+                v_z_i[v_i] := v_z_i[v_i] / v_sum2;
             ELSE
-                v_z_i := 1;
+                v_z_i[v_i] := 1;
             END IF;
             
             -- Обновляем K1
-            IF v_z_i > 0 THEN
-                v_k1_curr[v_i] := v_z_i_plus / v_z_i;
+            IF v_z_i[v_i] > 0 THEN
+                v_k1_curr[v_i] := v_z_i_plus[v_i] / v_z_i[v_i];
             ELSE
                 v_k1_curr[v_i] := 1;
             END IF;
@@ -193,13 +194,13 @@ BEGIN
             END LOOP;
             
             IF v_sum2 > 0 THEN
-                v_z_j_plus := v_sum1 / v_sum2;
+                v_z_j_plus[v_j] := v_sum1 / v_sum2;
             ELSE
-                v_z_j_plus := 0;
+                v_z_j_plus[v_j] := 0;
             END IF;
             
-            -- Вычисляем Z_plus_j для каждой строки
-            v_z_j := 0;
+            -- Вычисляем Z_j (знаменатель для Ind2)
+            v_z_j[v_j] := 0;
             FOR v_i IN 1..v_n1 LOOP
                 -- Сначала вычисляем Z_plus_j(i) - взвешенное среднее по строке i
                 v_sum1 := 0;
@@ -212,13 +213,13 @@ BEGIN
                 END LOOP;
                 
                 IF v_sum2 > 0 THEN
-                    v_z_plus_j := v_sum1 / v_sum2;
+                    v_z_plus_j_val := v_sum1 / v_sum2;
                 ELSE
-                    v_z_plus_j := 0;
+                    v_z_plus_j_val := 0;
                 END IF;
                 
                 -- Добавляем к Z_j
-                v_z_j := v_z_j + v_v[v_i][v_j] * v_z_plus_j;
+                v_z_j[v_j] := v_z_j[v_j] + v_v[v_i][v_j] * v_z_plus_j_val;
             END LOOP;
             
             -- Нормализуем Z_j
@@ -228,14 +229,14 @@ BEGIN
             END LOOP;
             
             IF v_sum2 > 0 THEN
-                v_z_j := v_z_j / v_sum2;
+                v_z_j[v_j] := v_z_j[v_j] / v_sum2;
             ELSE
-                v_z_j := 1;
+                v_z_j[v_j] := 1;
             END IF;
             
             -- Обновляем K2
-            IF v_z_j > 0 THEN
-                v_k2_curr[v_j] := v_z_j_plus / v_z_j;
+            IF v_z_j[v_j] > 0 THEN
+                v_k2_curr[v_j] := v_z_j_plus[v_j] / v_z_j[v_j];
             ELSE
                 v_k2_curr[v_j] := 1;
             END IF;
@@ -272,9 +273,3 @@ BEGIN
     RAISE NOTICE 'Результаты сохранены.';
 END;
 $function$;
-
-
-SQL Error [42601]: ERROR: "v_z_plus_i" is not a known variable
-  Position: 4443
-  ERROR: "v_z_plus_i" is not a known variable
-  Position: 4443
