@@ -1,297 +1,35 @@
-Option Explicit
-Dim i As Integer
-Dim j As Integer
-Dim k As Integer
-
-Dim N1 As Integer
-Dim N2 As Integer
-
-Dim Z() As Double
-Dim V() As Double
-Dim S() As Double
-
-Dim F1() As String
-Dim F2() As String
-
-Dim K1() As Double
-Dim tempK1() As Double
-Dim K2() As Double
-Dim tempK2() As Double
-
-Dim dist As Double
-Dim eps As Double
-
-Dim s1, s2 As Double
-
-Function norma(A, tempA, B, tempB, N1, N2) As Double
-
-s1 = 0
-s2 = 0
-For i = 0 To N1 - 1
-    s1 = s1 + (A(i) - tempA(i)) ^ 2
-Next i
-For i = 0 To N2 - 1
-    s2 = s2 + (B(i) - tempB(i)) ^ 2
-Next i
-norma = Sqr(s1 + s2)
-
-End Function
-
-Sub Расчет()
-On Error GoTo ErrorHandler
-
-Dim Count As Integer
-Dim num As Integer
-Dim g1, g2 As String
-Dim iterCount As Integer
-Dim rowDiag As Integer
-Dim foundCount As Integer
-Dim sumV As Double
-Dim sumS As Double
-
-' ========================================
-' ПОЛНАЯ ОЧИСТКА ПЕРЕД ЗАПУСКОМ
-' ========================================
-
-' 1. Очищаем все массивы
-Erase Z
-Erase V
-Erase S
-Erase K1
-Erase tempK1
-Erase K2
-Erase tempK2
-Erase F1
-Erase F2
-
-' 2. Очищаем колонки с результатами
-Worksheets("Result").Activate
-Columns("B:B").ClearContents
-Columns("D:D").ClearContents
-Columns("G:Z").ClearContents
-
-' 3. Записываем заголовки
-Cells(1, 1).Value = "Месяц действия"
-Cells(1, 2).Value = "K1"
-Cells(1, 3).Value = "Месяц календарный"
-Cells(1, 4).Value = "K2"
-Cells(1, 5).Value = "Базовая частота"
-
-' ========================================
-' ОПРЕДЕЛЕНИЕ РАЗМЕРНОСТЕЙ
-' ========================================
-
-N1 = Application.WorksheetFunction.CountA(Columns(1)) - 1
-N2 = Application.WorksheetFunction.CountA(Columns(3)) - 1
-eps = 0.000001
-
-' Проверка: если N1 или N2 = 0, то выходим
-If N1 = 0 Or N2 = 0 Then
-    MsgBox "Ошибка: N1 или N2 равны 0! Проверьте данные на листе Result"
-    Exit Sub
-End If
-
-' ========================================
-' ПЕРЕОПРЕДЕЛЕНИЕ МАССИВОВ
-' ========================================
-
-ReDim Z(N1 - 1, N2 - 1)
-ReDim V(N1 - 1, N2 - 1)
-ReDim S(N1 - 1, N2 - 1)
-ReDim K1(N1 - 1)
-ReDim tempK1(N1 - 1)
-ReDim K2(N2 - 1)
-ReDim tempK2(N2 - 1)
-ReDim F1(N1 - 1)
-ReDim F2(N2 - 1)
-
-' ========================================
-' ЗАПОЛНЕНИЕ F1 и F2
-' ========================================
-
-For i = 0 To N1 - 1
-    F1(i) = CStr(Worksheets("Result").Cells(i + 2, 1).Value)
-Next i
-
-For i = 0 To N2 - 1
-    F2(i) = CStr(Worksheets("Result").Cells(i + 2, 3).Value)
-Next i
-
-' ========================================
-' ЧТЕНИЕ ДАННЫХ
-' ========================================
-
-Worksheets("Data").Activate
-Count = Application.WorksheetFunction.CountA(Columns(1))
-
-If Count = 0 Then
-    MsgBox "Ошибка: нет данных на листе Data!"
-    Exit Sub
-End If
-
-foundCount = 0
-
-For num = 2 To Count
-    g1 = Worksheets("Data").Cells(num, 1).Value
-    g2 = Worksheets("Data").Cells(num, 2).Value
-    For i = 0 To N1 - 1
-        For j = 0 To N2 - 1
-            If g1 = F1(i) And g2 = F2(j) Then
-                foundCount = foundCount + 1
-                V(i, j) = Worksheets("Data").Cells(num, 4).Value
-                S(i, j) = Worksheets("Data").Cells(num, 3).Value
-                If V(i, j) > 0 Then
-                    Z(i, j) = S(i, j) / V(i, j)
-                Else
-                    Z(i, j) = 0
-                End If
-            End If
-        Next j
-    Next i
-Next num
-
-' Проверка: все ли данные найдены
-If foundCount <> N1 * N2 Then
-    MsgBox "Внимание! Найдено " & foundCount & " соответствий, ожидалось " & N1 * N2
-End If
-
-' ========================================
-' ИНИЦИАЛИЗАЦИЯ ИНДЕКСОВ
-' ========================================
-
-For i = 0 To N1 - 1
-    tempK1(i) = 1
-    K1(i) = 1
-Next i
-
-For j = 0 To N2 - 1
-    tempK2(j) = 1
-    K2(j) = 1
-Next j
-
-dist = 1
-iterCount = 0
-
-' ========================================
-' ИТЕРАТИВНЫЙ ПРОЦЕСС
-' ========================================
-
-While dist > eps And iterCount < 10000
-    iterCount = iterCount + 1
-    
-    ' Обновляем K1
-    For i = 0 To N1 - 1
-        s1 = 0
-        s2 = 0
-        For j = 0 To N2 - 1
-            If K2(j) <> 0 Then
-                s1 = s1 + S(i, j) / K2(j)
-            End If
-            s2 = s2 + V(i, j)
-        Next j
-        If s2 > 0 Then
-            K1(i) = s1 / s2
-        Else
-            K1(i) = 1
-        End If
-    Next i
-    
-    ' Обновляем K2
-    For j = 0 To N2 - 1
-        s1 = 0
-        s2 = 0
-        For i = 0 To N1 - 1
-            If K1(i) <> 0 Then
-                s1 = s1 + S(i, j) / K1(i)
-            End If
-            s2 = s2 + V(i, j)
-        Next i
-        If s2 > 0 Then
-            K2(j) = s1 / s2
-        Else
-            K2(j) = 1
-        End If
-    Next j
-    
-    dist = norma(K1, tempK1, K2, tempK2, N1, N2)
-    
-    For i = 0 To N1 - 1
-        tempK1(i) = K1(i)
-    Next i
-    
-    For j = 0 To N2 - 1
-        tempK2(j) = K2(j)
-    Next j
-     
-Wend
-
-' ========================================
-' ВЫВОД РЕЗУЛЬТАТОВ
-' ========================================
-
-Worksheets("Result").Activate
-
-For i = 2 To 1 + N1
-    Worksheets("Result").Cells(i, 2).Value = K1(i - 2)
-Next i
-
-For j = 2 To 1 + N2
-    Worksheets("Result").Cells(j, 4).Value = K2(j - 2)
-Next j
-
-Worksheets("Result").Cells(2, 5).Value = 1
-
-' ========================================
-' ДИАГНОСТИКА
-' ========================================
-
-rowDiag = 1
-Cells(rowDiag, 7).Value = "=== ДИАГНОСТИКА ==="
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "N1"
-Cells(rowDiag, 8).Value = N1
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "N2"
-Cells(rowDiag, 8).Value = N2
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "Найдено соответствий"
-Cells(rowDiag, 8).Value = foundCount
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "Итераций"
-Cells(rowDiag, 8).Value = iterCount
-rowDiag = rowDiag + 1
-Cells(rowDiag, 7).Value = "Финальная ошибка"
-Cells(rowDiag, 8).Value = dist
-rowDiag = rowDiag + 2
-
-' Выводим все K1
-Cells(rowDiag, 7).Value = "K1 (все значения)"
-rowDiag = rowDiag + 1
-For i = 0 To N1 - 1
-    Cells(rowDiag + i, 7).Value = "K1(" & i & ")"
-    Cells(rowDiag + i, 8).Value = K1(i)
-Next i
-rowDiag = rowDiag + N1 + 1
-
-' Выводим все K2
-Cells(rowDiag, 7).Value = "K2 (все значения)"
-rowDiag = rowDiag + 1
-For j = 0 To N2 - 1
-    Cells(rowDiag + j, 7).Value = "K2(" & j & ")"
-    Cells(rowDiag + j, 8).Value = K2(j)
-Next j
-
-Columns("G:Z").AutoFit
-
-Worksheets("Result").Activate
-
-MsgBox "Расчет завершен!" & vbCrLf & _
-       "Итераций: " & iterCount & vbCrLf & _
-       "Финальная ошибка: " & dist
-
-Exit Sub
-
-ErrorHandler:
-    MsgBox "Ошибка: " & Err.Description & vbCrLf & "Номер: " & Err.Number
-    Resume Next
-End Sub
+Месяц действия	K1	Месяц календарный	K2	Базовая частота			
+1	0.85	1	1.14	100%		N1	13
+2	0.96	2	1.08			N2	12
+3	1.00	3	1.17			Найдено соответствий	156
+4	0.86	4	0.91			Итераций	6
+5	1.22	5	0.70			Финальная ошибка	2.3754E-07
+6	1.11	6	0.83				
+7	0.80	7	1.02			K1 (все значения)	
+8	1.15	8	1.01			K1(0)	0.852190055
+9	1.04	9	0.73			K1(1)	0.956850135
+10	1.12	10	0.75			K1(2)	1.004044025
+11	0.84	11	1.06			K1(3)	0.855606702
+12	1.17	12	1.61			K1(4)	1.216438265
+13	0.63					K1(5)	1.109557758
+						K1(6)	0.79953403
+						K1(7)	1.151589721
+						K1(8)	1.039495841
+						K1(9)	1.120491821
+						K1(10)	0.840158176
+						K1(11)	1.165948421
+						K1(12)	0.631198462
+							
+						K2 (все значения)	
+						K2(0)	1.141191361
+						K2(1)	1.083664145
+						K2(2)	1.165722
+						K2(3)	0.9090799
+						K2(4)	0.700627529
+						K2(5)	0.834337531
+						K2(6)	1.018879665
+						K2(7)	1.005302538
+						K2(8)	0.725974158
+						K2(9)	0.748941186
+						K2(10)	1.059297149
+						K2(11)	1.611821887
