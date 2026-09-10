@@ -1,26 +1,1074 @@
-Столбцы
-Тип страхователя,	Признак пролонгации,	Месяц действия,	Месяц календарный,	Месяц начала,	Отв_Пр,	Развитое количество убытков	Экспозиция,	MCL,
+----------------------------------
+PROCEDURE XLS_EXPOSISION_PREMIUM_OSAGO_O is
+-- запускаем только после "Сформированных основных форм" и "Рассчитанного агрегата" по ОСАГО  в "Актуарном отчетном модуле",
+-- результат вставляем на соответствующий лист в xlsb "YYYY-MM-DD - Экспозиция и ЗП по ОСАГО и КАСКО.xlsb"
 
-ФЛ	Возобновлённый	1	1	202401	-	0.00	4 492.88	0.0
-ФЛ	Возобновлённый	1	1	202401	ОтвСтр	216.09	0.00	7 671.9
-ФЛ	Возобновлённый	1	1	202401	ПрСтр	163.06	0.00	7 042.1
+  v_proc varchar2(128) := 'XLS_EXPOSISION_PREMIUM_OSAGO_O';
+  v_scri varchar2(128) := 'YYYY-MM-DD - Экспозиция и ЗП по ОСАГО для Ольги.sql';  
+  
+begin
+utils.logz(v_proc, v_scri, 'START');
 
-формула
-MCL=ЕСЛИОШИБКА(G2*СУММЕСЛИМН($H:$H;$E:$E;$E2;$A:$A;$A2;$B:$B;$B2)/СУММЕСЛИМН($G:$G;$E:$E;$E2;$A:$A;$A2;$B:$B;$B2;$F:$F;$F2);0)
+execute immediate 'truncate table XLS_EXPOSISION_PREMIUM_OSAGO_O';
 
-перепиши ее на postgres sql
+-- вставляем данные из ранее расчитанного агрегата по ОСАГО:
+
+ -- IF v#END_DATE = trunc(sysdate, 'q') - 1 THEN
+    if  trunc(sysdate,'MM')-1 = trunc(sysdate, 'q') - 1  then  
+        
+        execute immediate 'create or replace view OSAGO_FqRM1 as select * from  OSAGO_FoRM1_q';
+        execute immediate 'create or replace view OSAGO_st_FqRM1 as select * from  OSAGO_st_FoRM1_q';
+        execute immediate 'create or replace view OSAGO_gw_FqRM1 as select * from  OSAGO_gw_FoRM1_q';
+        
+        execute immediate 'create or replace view OSAGO_RESULT_FqRM_ALL as select * from  OSAGO_RESULT_FORM_ALL_Q';
+        execute immediate 'create or replace view OSAGO_st_RESULT_FqRM_ALL as select * from  OSAGO_st_RESULT_FORM_ALL_q';
+        execute immediate 'create or replace view OSAGO_gw_RESULT_FqRM_ALL as select * from  OSAGO_gw_RESULT_FORM_ALL_q';  
+                        
+        utils.logz(v_proc, v_scri, 'квартал'); 
+    ELSE
+        
+        execute immediate 'create or replace view OSAGO_FqRM1 as select * from  OSAGO_FoRM1';
+        execute immediate 'create or replace view OSAGO_st_FqRM1 as select * from  OSAGO_st_FoRM1';
+        execute immediate 'create or replace view OSAGO_gw_FqRM1 as select * from  OSAGO_gw_FoRM1';
+        
+        execute immediate 'create or replace view OSAGO_RESULT_FqRM_ALL as select * from  OSAGO_RESULT_FORM_ALL';
+        execute immediate 'create or replace view OSAGO_st_RESULT_FqRM_ALL as select * from  OSAGO_st_RESULT_FORM_ALL';
+        execute immediate 'create or replace view OSAGO_gw_RESULT_FqRM_ALL as select * from  OSAGO_gw_RESULT_FORM_ALL';  
+        
+        utils.logz(v_proc, v_scri, 'месяц');
+    END IF;
+ 
+ 
+insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_OSAGO_O
+-- По агрегату
+--create table XLS_EXPOSISION_PREMIUM_OSAGO_O as 
+select DB,
+       NEW_REGIONNAME,
+       PROPERTYFORMNAME,
+       SALECHANNELFULLNAME_DE,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       D1_QUARTER,
+       IS_POLICY_FROM_E_GARANT,
+       
+       IS_POLICY_FROM_EA,
+       NEW_REGIONNAME_EXT,
+       D1_MONTH,
+       CONTRACTOPTION,
+       OSAGO_CHAIN_NUMBER,
+       KC,
+       IS_DEAD_POLICY,
+       IS_NEED_REINSURANCE,
+       
+       is_prolongation,
+       OWNER_REGISTRATION_REGION,
+       
+       sum(EXPOSURE) EXPOSURE,
+       sum(EP) EP,
+       sum(WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(POLICYCOUNT) POLICYCOUNT,
+       sum(RETURNPREMIUM) RETURNPREMIUM
+from
+(
+select /*+ parallel(orf 16) */
+
+    --'gwpc' DB,
+       substr(orf.objectid,1,4) as db, -- kms20260323: 4impl
+       
+       ORF.NEW_REGIONNAME,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       
+       f1.IS_POLICY_FROM_EA,
+       orf.NEW_REGIONNAME_EXT,
+       orf.D1_MONTH,
+       f1.CONTRACTOPTION,
+       f1.OSAGO_CHAIN_NUMBER,
+       f1.KC,
+       
+       f1.IS_DEAD_POLICY,
+       f1.IS_NEED_REINSURANCE,
+       
+       f1.is_prolongation,
+       f1.OWNER_REGISTRATION_REGION,
+        
+        
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_gw_RESULT_FqRM_ALL orf
+     left join osago_gw_fqrm1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+--where 1 = 0     
+group by substr(orf.objectid,1,4), -- kms20260323: 4impl
+         ORF.NEW_REGIONNAME,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT,
+         
+         f1.IS_POLICY_FROM_EA,
+         orf.NEW_REGIONNAME_EXT,
+         orf.D1_MONTH,
+         f1.CONTRACTOPTION,
+         f1.OSAGO_CHAIN_NUMBER,
+         f1.KC,
+         f1.IS_DEAD_POLICY,
+         f1.IS_NEED_REINSURANCE,
+         
+         f1.is_prolongation,
+         f1.OWNER_REGISTRATION_REGION       
+                  
+union all
+
+select /*+ parallel(orf 16) */
+       'АРМ' DB,
+       ORF.NEW_REGIONNAME,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       
+       f1.IS_POLICY_FROM_EA,
+       orf.NEW_REGIONNAME_EXT,
+       orf.D1_MONTH,
+       f1.CONTRACTOPTION,
+       f1.OSAGO_CHAIN_NUMBER,
+       f1.KC,
+       f1.IS_DEAD_POLICY,
+       f1.IS_NEED_REINSURANCE,
+       
+       f1.is_prolongation,
+       f1.OWNER_REGISTRATION_REGION,
+           
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_RESULT_FqRM_ALL orf
+     left join osago_fqrm1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+--where 1 = 0     
+group by ORF.NEW_REGIONNAME,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT,
+         
+         f1.IS_POLICY_FROM_EA,
+         orf.NEW_REGIONNAME_EXT,
+         orf.D1_MONTH,
+         f1.CONTRACTOPTION,
+         f1.OSAGO_CHAIN_NUMBER,
+         f1.KC,
+         f1.IS_DEAD_POLICY,
+         f1.IS_NEED_REINSURANCE,
+         
+         f1.is_prolongation,
+         f1.OWNER_REGISTRATION_REGION         
+                  
+union all
+select /*+ parallel(orf 16) */
+       /*kms20062024:case when ORF.NEW_REGIONNAME like 'ТЭК%'
+            then 'КС'
+            else 'ЕКИС'
+        end DB,*/
+       'ЕКИС' as DB,
+       ORF.NEW_REGIONNAME,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       
+       f1.IS_POLICY_FROM_EA,
+       orf.NEW_REGIONNAME_EXT,
+       orf.D1_MONTH,
+       f1.CONTRACTOPTION,
+       f1.OSAGO_CHAIN_NUMBER,
+       f1.KC,
+       f1.IS_DEAD_POLICY,
+       f1.IS_NEED_REINSURANCE, 
+         
+       f1.is_prolongation,
+       f1.OWNER_REGISTRATION_REGION,
+                  
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_ST_RESULT_FqRM_ALL orf
+     left join osago_st_fqrm1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+--where 1 = 0     
+group by /*kms20062024:case when ORF.NEW_REGIONNAME like 'ТЭК%'
+              then 'КС'
+              else 'ЕКИС'
+          end,*/
+         ORF.NEW_REGIONNAME,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,         
+         f1.IS_POLICY_FROM_E_GARANT,
+         
+         f1.IS_POLICY_FROM_EA,
+         orf.NEW_REGIONNAME_EXT,
+         orf.D1_MONTH,
+         f1.CONTRACTOPTION,
+         f1.OSAGO_CHAIN_NUMBER,
+         f1.KC,
+         f1.IS_DEAD_POLICY,
+         f1.IS_NEED_REINSURANCE,
+         
+         f1.is_prolongation,
+         f1.OWNER_REGISTRATION_REGION
+           
+)
+--where 1 = 0
+group by DB,
+         NEW_REGIONNAME,
+         PROPERTYFORMNAME,
+         SALECHANNELFULLNAME_DE,
+         YEAR_MONTH,
+         YEAR_QUARTER,
+         D1_QUARTER,
+         IS_POLICY_FROM_E_GARANT,
+         
+         IS_POLICY_FROM_EA,
+         NEW_REGIONNAME_EXT,
+         D1_MONTH,
+         CONTRACTOPTION,
+         OSAGO_CHAIN_NUMBER,
+         KC,
+         IS_DEAD_POLICY,
+         IS_NEED_REINSURANCE,
+         is_prolongation,
+         OWNER_REGISTRATION_REGION         
+order by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16;
+utils.logz(v_proc, v_scri, 'END');
+commit;
+utils.email(v_proc, v_scri || ' accomplished', 'Anastasiya_Zhukova@rgs.ru');
+
+EXCEPTION  when others then  utils.logz(v_proc, v_scri, sqlerrm || chr(10) || chr(13) || dbms_utility.format_error_backtrace || chr(10) || chr(13) || DBMS_UTILITY.format_call_stack );
+RAISE;
+END;--XLS_EXPOSISION_PREMIUM_OSAGO_O
+----------------------------------
+
+PROCEDURE XLS_EXPOSISION_PREMIUM_OSAGO is
+-- YYYY-MM-DD - Экспозиция и ЗП по ОСАГО.sql
+-- запускаем только после "Сформированных основных форм" и "Рассчитанного агрегата" по ОСАГО  в "Актуарном отчетном модуле",
+-- результат вставляем на соответствующий лист в xlsb "YYYY-MM-DD - Экспозиция и ЗП по ОСАГО и КАСКО.xlsb"
+
+  v_proc varchar2(128) := 'XLS_EXPOSISION_PREMIUM_OSAGO';
+  v_scri varchar2(128) := 'YYYY-MM-DD - Экспозиция и ЗП по ОСАГО.sql';  
+  
+begin
+utils.logz(v_proc, v_scri, 'START');
+
+execute immediate 'truncate table XLS_EXPOSISION_PREMIUM_OSAGO';
+
+-- вставляем данные из ранее расчитанного агрегата по ОСАГО:
+
+ -- IF v#END_DATE = trunc(sysdate, 'q') - 1 THEN
+    if  trunc(sysdate,'MM')-1 = trunc(sysdate, 'q') - 1 then  
+        
+        execute immediate 'create or replace view OSAGO_FqRM1 as select * from  OSAGO_FoRM1_q';
+        execute immediate 'create or replace view OSAGO_st_FqRM1 as select * from  OSAGO_st_FoRM1_q';
+        execute immediate 'create or replace view OSAGO_RESULT_FqRM_ALL as select * from  OSAGO_RESULT_FORM_ALL_Q';
+        execute immediate 'create or replace view OSAGO_st_RESULT_FqRM_ALL as select * from  OSAGO_st_RESULT_FORM_ALL_q';  
+        
+        execute immediate 'create or replace view OSAGO_gw_FqRM1 as select * from  OSAGO_gw_FoRM1_q';
+        execute immediate 'create or replace view OSAGO_gw_RESULT_FqRM_ALL as select * from  OSAGO_gw_RESULT_FORM_ALL_q';  
+                        
+        utils.logz(v_proc, v_scri, 'квартал'); 
+    ELSE
+        
+        execute immediate 'create or replace view OSAGO_FqRM1 as select * from  OSAGO_FoRM1';
+        execute immediate 'create or replace view OSAGO_st_FqRM1 as select * from  OSAGO_st_FoRM1';
+        execute immediate 'create or replace view OSAGO_RESULT_FqRM_ALL as select * from  OSAGO_RESULT_FORM_ALL';
+        execute immediate 'create or replace view OSAGO_st_RESULT_FqRM_ALL as select * from  OSAGO_st_RESULT_FORM_ALL';  
+        
+        execute immediate 'create or replace view OSAGO_gw_FqRM1 as select * from  OSAGO_gw_FoRM1';  
+        execute immediate 'create or replace view OSAGO_gw_RESULT_FqRM_ALL as select * from  OSAGO_gw_RESULT_FORM_ALL';  
+       
+        utils.logz(v_proc, v_scri, 'месяц');
+    END IF;
+
+-- если закрываем квартал:
+--if  trunc(sysdate,'MM')-1 = trunc(sysdate, 'q') - 1  then 
+ 
+insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_OSAGO
+-- По агрегату
+select DB,
+       NEW_REGIONNAME,
+       NEW_REGIONNAME_ext,
+       PROPERTYFORMNAME,
+       SALECHANNELFULLNAME_DE,
+       IS_PARTNER,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       D1_QUARTER,       
+       IS_POLICY_FROM_E_GARANT,
+       IS_DEAD_POLICY,
+       IS_NEED_REINSURANCE,
+       
+       /*
+       if([Тип страхователя] = 'Физическое лицо',
+	             if([Номер договора в цепочке ОСАГО] > 1, 'Возобновлённый', 'Первоначальный'),
+               [Признак договора]) as [Признак пролонгации],*/
+    
+    
+       CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 
+            case when osago_chain_number > 1 then 'Возобновлённый'
+                 else 'Первоначальный'
+            end 
+            ELSE 
+               DECODE (AGR_CONTRACTOPTION,
+                  '1', 'Первоначальный',
+                  '2', 'Возобновлённый',
+                  'нд')
+       END as IS_PROLONGATION,
+            
+       sum(EXPOSURE) EXPOSURE,
+       sum(EP) EP,
+       sum(WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(POLICYCOUNT) POLICYCOUNT,
+       sum(RETURNPREMIUM) RETURNPREMIUM
+from
+(
+select /*+ parallel(orf 16) */
+
+    --'gwpc' DB,
+       substr(orf.objectid,1,4) as db, -- kms20260323: 4impl
+       
+       ORF.NEW_REGIONNAME,
+       ORF.NEW_REGIONNAME_ext,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       orf.IS_PARTNER,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       f1.IS_DEAD_POLICY,
+       f1.IS_NEED_REINSURANCE,
+       f1.osago_chain_number,
+       f1.AGR_CONTRACTOPTION,
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_gw_RESULT_FqRM_ALL orf
+     left join osago_gw_fqrm1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+group by 
+         substr(orf.objectid,1,4), -- kms20260323: 4impl
+         ORF.NEW_REGIONNAME,
+         ORF.NEW_REGIONNAME_ext,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         orf.IS_PARTNER,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT,
+         f1.IS_DEAD_POLICY,
+         f1.IS_NEED_REINSURANCE,
+         f1.osago_chain_number,
+         f1.AGR_CONTRACTOPTION
+union all
+select /*+ parallel(orf 16) */
+       'АРМ' DB,
+       ORF.NEW_REGIONNAME,
+       ORF.NEW_REGIONNAME_ext,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       orf.IS_PARTNER,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       f1.IS_DEAD_POLICY,
+       f1.IS_NEED_REINSURANCE,
+       f1.osago_chain_number,
+       f1.f1.AGR_CONTRACTOPTION,
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_RESULT_FqRM_ALL orf
+     left join osago_fqrm1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+group by ORF.NEW_REGIONNAME,
+         ORF.NEW_REGIONNAME_ext,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         orf.IS_PARTNER,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT,
+         f1.IS_DEAD_POLICY,
+         f1.IS_NEED_REINSURANCE,
+         f1.osago_chain_number,
+         f1.AGR_CONTRACTOPTION
+union all
+select /*+ parallel(orf 16) */
+       /*kms20062024: case when ORF.NEW_REGIONNAME like 'ТЭК%'
+            then 'КС'
+            else 'ЕКИС'
+        end DB,*/
+       'ЕКИС' as DB,
+       ORF.NEW_REGIONNAME,
+       ORF.NEW_REGIONNAME_ext,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       orf.IS_PARTNER,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       f1.IS_DEAD_POLICY,
+       f1.IS_NEED_REINSURANCE,
+       f1.osago_chain_number,
+       f1.AGR_CONTRACTOPTION,
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_ST_RESULT_FqRM_ALL orf
+     left join osago_st_fqrm1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+group by /*kms20062024: case when ORF.NEW_REGIONNAME like 'ТЭК%'
+              then 'КС'
+              else 'ЕКИС'
+          end,*/
+         ORF.NEW_REGIONNAME,
+         ORF.NEW_REGIONNAME_ext,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         orf.IS_PARTNER,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT,
+         f1.IS_DEAD_POLICY,
+         f1.IS_NEED_REINSURANCE,
+         f1.osago_chain_number,
+         f1.AGR_CONTRACTOPTION
+)
+group by DB,
+         NEW_REGIONNAME,
+         NEW_REGIONNAME_ext,
+         PROPERTYFORMNAME,
+         SALECHANNELFULLNAME_DE,
+         IS_PARTNER,
+         YEAR_MONTH,
+         YEAR_QUARTER,
+         D1_QUARTER,
+         IS_POLICY_FROM_E_GARANT,
+         IS_DEAD_POLICY,
+         IS_NEED_REINSURANCE,
+         CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 
+            case when osago_chain_number > 1 then 'Возобновлённый'
+                 else 'Первоначальный'
+            end 
+            ELSE 
+               DECODE (AGR_CONTRACTOPTION,
+                  '1', 'Первоначальный',
+                  '2', 'Возобновлённый',
+                  'нд')
+       END-- as IS_PROLONGATION
+order by 1, 2, 3, 4, 5, 6;
+utils.logz(v_proc, v_scri, 'XLS_EXPOSISION_PREMIUM_OSAGO', 'NOEMAIL');  
+COMMIT;
+
+/*
+else
+---если закрываем НЕ квартал:
+
+  insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_OSAGO
+-- По агрегату
+select DB,
+       NEW_REGIONNAME,
+       PROPERTYFORMNAME,
+       SALECHANNELFULLNAME_DE,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       D1_QUARTER,
+       IS_POLICY_FROM_E_GARANT,
+       sum(EXPOSURE) EXPOSURE,
+       sum(EP) EP,
+       sum(WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(POLICYCOUNT) POLICYCOUNT,
+       sum(RETURNPREMIUM) RETURNPREMIUM
+from
+(
+select --+ parallel(orf 16) 
+       'АРМ' DB,
+       ORF.NEW_REGIONNAME,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_RESULT_FORM_ALL orf
+left join osago_form1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+group by ORF.NEW_REGIONNAME,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT
+union all
+select --+ parallel(orf 16)
+       case when ORF.NEW_REGIONNAME like 'ТЭК%'
+            then 'КС'
+            else 'ЕКИС'
+        end DB,
+       ORF.NEW_REGIONNAME,
+       decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо') PROPERTYFORMNAME,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(ORF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(ORF.T1, 'yyyyq') YEAR_QUARTER,
+       ORF.D1_QUARTER,
+       f1.IS_POLICY_FROM_E_GARANT,
+       sum(ORF.EXPOSURE) EXPOSURE,
+       sum(ORF.EP - ORF.RETURNPREMIUM) EP,
+       sum(ORF.WRITTENPREMIUM) WRITTENPREMIUM,
+       sum(ORF.POLICYCOUNT) POLICYCOUNT,
+       sum(ORF.RETURNPREMIUM) RETURNPREMIUM
+from OSAGO_ST_RESULT_FORM_ALL orf
+left join osago_st_form1 f1 on orf.objectid = f1.objectid-- kms24092020
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = ORF.SALECHANNEL2008
+group by case when ORF.NEW_REGIONNAME like 'ТЭК%'
+              then 'КС'
+              else 'ЕКИС'
+          end,
+         ORF.NEW_REGIONNAME,
+         decode(ORF.PROPERTYFORMNAME, '1', 'Физическое лицо', '2', 'Юридическое лицо', '5', 'Юридическое лицо'),
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(ORF.T1, 'yyyymm'),
+         to_char(ORF.T1, 'yyyyq'),
+         ORF.D1_QUARTER,
+         f1.IS_POLICY_FROM_E_GARANT
+)
+group by DB,
+         NEW_REGIONNAME,
+         PROPERTYFORMNAME,
+         SALECHANNELFULLNAME_DE,
+         YEAR_MONTH,
+         YEAR_QUARTER,
+         D1_QUARTER,
+         IS_POLICY_FROM_E_GARANT
+order by 1, 2, 3, 4, 5, 6;
+utils.logz(v_proc, v_scri, 'если закрываем НЕ квартал');  
+COMMIT;
+
+end if;
+*/
+
+-- вставляем данные прошлых периодов из ранее расчитанного агрегата по МОНИТОРИНГУ (на крайний REPORT_DATE) за период ПРЕДШЕСТВУЮЩИЙ периоду расчёта агрегата ОСАГО:
+  insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_OSAGO  
+select 
+       DB,
+       NEW_REGIONNAME,
+       NEW_REGIONNAME_EXT,
+       PROPERTYFORMNAME,
+       SALECHANNELFULLNAME_DE,
+       IS_PARTNER,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       D1_QUARTER,
+       IS_POLICY_FROM_E_GARANT,
+       IS_DEAD_POLICY,
+       -1 as IS_NEED_REINSURANCE,
+       'нд' as IS_PROLONGATION,
+       EXPOSURE,
+       EP,
+       WRITTENPREMIUM,
+       POLICYCOUNT,
+       RETURNPREMIUM
+from XLS_EXPOSISION_PREMIUM_OSAGO16 ex16
+ where ex16.YEAR_QUARTER < (select min(YEAR_QUARTER) from XLS_EXPOSISION_PREMIUM_OSAGO);
+
+/*  
+select '-' DB, --OSAGO
+       MON.NEW_REGIONNAME,
+       case when MON.PROPERTYFORMNAME = 'Физическое лицо' and MON.NEW_REGIONNAME = 'Центральный офис' and MON.SALECHANNEL2008 = 'грМК Онлайн'
+             then 'Онлайн-продажи'
+            else MON.NEW_REGIONNAME
+       end NEW_REGIONNAME_ext,
+       decode (MON.PROPERTYFORMNAME, 'Юридическое лицо + ПБОЮЛ', 'Юридическое лицо', MON.PROPERTYFORMNAME) PROPERTYFORMNAME,
+       MON.SALECHANNEL2008 SALECHANNELFULLNAME_DE,
+       case when upper(IS_PARTNER) = 'ДА' then '1'
+            when upper(IS_PARTNER) = 'НЕТ' then '0'
+            else 'нд' end as IS_PARTNER,
+       MON.YEARMONTH YEAR_MONTH,
+       MON.YEARQUARTER YEAR_QUARTER,
+       '-' D1_QUARTER,
+       -1 IS_POLICY_FROM_E_GARANT,
+       sum(MON.POLICY_EXPOSURE) EXPOSURE,
+       sum(MON.EARNED_PREMIUM) EP,
+       sum(MON.WRITTEN_PREMIUM_ON_D1) WRITTENPREMIUM,
+       sum(MON.POLICY_COUNT_ON_D1) POLICYCOUNT,
+       sum(MON.RETURN_ON_REC_DATE) RETURNPREMIUM
+from MON_FOR_AGR_EXPORT mon
+where MON.REPORT_DATE = (select max(MON2.REPORT_DATE) from MON_FOR_AGR_EXPORT mon2) and
+      MON.CATEGORY_NAME = '22. ОСАГО' and
+      MON.YEARQUARTER < (select min(YEAR_QUARTER) from XLS_EXPOSISION_PREMIUM_OSAGO) --'20161' 
+group by MON.NEW_REGIONNAME,
+         case when MON.PROPERTYFORMNAME = 'Физическое лицо' and MON.NEW_REGIONNAME = 'Центральный офис' and MON.SALECHANNEL2008 = 'грМК Онлайн'
+               then 'Онлайн-продажи'
+              else MON.NEW_REGIONNAME
+         end,
+         decode (MON.PROPERTYFORMNAME, 'Юридическое лицо + ПБОЮЛ', 'Юридическое лицо', MON.PROPERTYFORMNAME),
+         MON.SALECHANNEL2008,
+         case when upper(IS_PARTNER) = 'ДА' then '1'
+            when upper(IS_PARTNER) = 'НЕТ' then '0'
+          else 'нд' end,
+         MON.YEARMONTH,
+         MON.YEARQUARTER;
+*/         
+utils.logz(v_proc, v_scri, 'данные прошлых периодов');  
+COMMIT;
+
+utils.logz(v_proc, v_scri, 'END');
+
+utils.email(v_proc, v_scri || ' accomplished', 'Andrey_Rozhnov@rgs.ru');
+utils.email(v_proc, v_scri || ' accomplished', 'Anastasiya_Zhukova@rgs.ru');
+utils.email(v_proc, v_scri || ' accomplished', 'Artyom_Sergeev@rgs.ru');
+--utils.email(v_proc, v_scri || ' accomplished', 'Maksim_Kazakov@rgs.ru');
 
 
-    COALESCE(
-        "Развитое количество убытков" * 
-        SUM("Экспозиция") OVER (PARTITION BY "Месяц начала", "Тип страхователя", "Признак пролонгации") /
-        NULLIF(SUM("Развитое количество убытков") OVER (PARTITION BY "Месяц начала", "Тип страхователя", "Признак пролонгации", "Отв_Пр"), 0),
-        0
-    ) AS "MCL"
+if trunc(sysdate) = to_date('06.07.2023', 'dd.mm.yyyy') then
+   AC_ETL.REP_GURU_OSAGO_TRIANGLE(3); 
+   AC_ETL.OSAGO_EXP_DETAILED_BY_OBJECT_Q;
+     
+end if;
 
-лист Emblem 
-=СУММЕСЛИМН(Данные_RS!$H:$H;Данные_RS!$A:$A;Emblem!$B2;Данные_RS!$B:$B;Emblem!$C2;Данные_RS!$C:$C;Emblem!$D2;Данные_RS!$D:$D;Emblem!$E2)
-=СУММЕСЛИМН(Данные_RS!$I:$I;Данные_RS!$A:$A;Emblem!$B2;Данные_RS!$B:$B;Emblem!$C2;Данные_RS!$C:$C;Emblem!$D2;Данные_RS!$D:$D;Emblem!$E2;Данные_RS!$F:$F;Emblem!$A2)
+EXCEPTION  when others then  utils.logz(v_proc, v_scri, sqlerrm || chr(10) || chr(13) || dbms_utility.format_error_backtrace || chr(10) || chr(13) || DBMS_UTILITY.format_call_stack );
+RAISE;
+END;--XLS_EXPOSISION_PREMIUM_OSAGO
+--3080secs
 
-если лист  Дданыные у нас  (как я уже присылал тебе)
-Тип страхователя,	Признак пролонгации,	Месяц действия,	Месяц календарный,	Месяц начала,	Отв_Пр,	Развитое количество убытков	Экспозиция,	MCL,
+PROCEDURE XLS_EXPOSISION_PREMIUM_KASKO is  
+-- YYYY-MM-DD - Экспозиция и ЗП по КАСКО.sql
+--- ВНИМАНИЕ!!! запускаем только после "Сформированных основных форм" 
+--  и "Рассчитанного агрегата" по Каско  в "Актуарном отчетном модуле" + GWPC Каско!!!,  
+--  результат вставляем на соответствующий лист в xlsb "YYYY-MM-DD - Экспозиция и ЗП по ОСАГО и КАСКО.xlsb"
+
+  v_proc varchar2(128) := 'XLS_EXPOSISION_PREMIUM_KASKO';
+  v_scri varchar2(64) := 'YYYY-MM-DD - Экспозиция и ЗП по КАСКО.sql';  
+begin
+utils.logz(v_proc, v_scri, 'START');
+
+execute immediate 'truncate table XLS_EXPOSISION_PREMIUM_KASKO';
+
+-- собираем и агрегируем экспозицию по GWPC+АРМ+ЕКИС:
+
+/*-- Дропаем все эти вьюхи, т.к. больше не нужны:
+DROP VIEW KASKO_GW_RESULT_FORM_ALL_VW_Q;
+DROP VIEW KASKO_RESULT_FORM_ALL_VW_Q;  
+DROP VIEW KASKO_ST_RESULT_FORM_ALL_VW_Q;
+*/
+
+insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_KASKO
+SELECT /*+ parallel(krf 16) */
+       krf.db,
+       krf.NEW_REGIONNAME,
+       krf.PROPERTYFORMNAME,
+       krf.PRODUCT_PROGRAM_TYPE,
+       krf.OBJECTCLASS,
+       krf.is_dead_policy,
+       CH.SALECHANNELFULLNAME_DE,
+       krf.category_id_2020,
+       to_char(krf.T1, 'yyyymm') YEAR_MONTH,
+       to_char(krf.T1, 'yyyyq') YEAR_QUARTER,
+       CASE WHEN krf.PROPERTYFORMNAME = 'Физическое лицо' THEN 
+            CASE WHEN krf.kasko_chain_number > 1 THEN 'Возобновлённый'
+                 ELSE 'Первоначальный'
+            END 
+            ELSE 
+            CASE krf.CONTRACTOPTION
+                  WHEN '1' THEN 'Первоначальный'
+                  WHEN '2' THEN 'Возобновлённый'
+                  ELSE 'нд'
+            END
+       END as IS_PROLONGATION,
+       SUM(krf.EXPOSURE) EXPOSURE,
+       SUM(krf.AC_EXPOSURE) AC_EXPOSURE,
+       SUM(krf.AC_EXPOSURE60) AC_EXPOSURE60,
+       SUM(krf.DE_ZPOP60_INITIAL - krf.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       SUM(krf.POLICYCOUNT) POLICYCOUNT,
+       SUM(krf.WRITTENPREMIUM) WP,
+       SUM(krf.WRITTENPREMIUM60) WP60,
+       SUM(krf.OBJECTQUANTITY) OBJECTQUANTITY,
+       SUM(krf.RETURNPREMIUM) RETURNPREMIUM,
+       SUM(krf.LIABILITY) LIABILITY
+FROM KASKO_RESULT_FULL_PARTS krf
+LEFT JOIN DICTSALECHANNELTYPE2008 ch ON CH.SALE_CHANNEL_TYPE2008_ID = krf.SALECHANNEL2008
+WHERE krf.part = CASE 
+                    WHEN TRUNC(SYSDATE, 'MM') - 1 = TRUNC(SYSDATE, 'Q') - 1 THEN 'q'  -- квартал
+                    ELSE 'm'  -- месяц
+                 END
+GROUP BY 
+    krf.db,
+    krf.NEW_REGIONNAME,
+    krf.PROPERTYFORMNAME,
+    krf.PRODUCT_PROGRAM_TYPE,
+    krf.OBJECTCLASS,
+    krf.is_dead_policy,
+    CH.SALECHANNELFULLNAME_DE,
+    krf.category_id_2020,
+    to_char(krf.T1, 'yyyymm'),
+    to_char(krf.T1, 'yyyyq'),
+    CASE WHEN krf.PROPERTYFORMNAME = 'Физическое лицо' THEN 
+         CASE WHEN krf.kasko_chain_number > 1 THEN 'Возобновлённый'
+              ELSE 'Первоначальный'
+         END 
+         ELSE 
+         CASE krf.CONTRACTOPTION
+               WHEN '1' THEN 'Первоначальный'
+               WHEN '2' THEN 'Возобновлённый'
+               ELSE 'нд'
+         END
+    END
+ORDER BY 1, 2, 3, 4;  
+
+utils.logz(v_proc, v_scri, 'END. считали экспозицию по Каско за '||CASE 
+                    WHEN TRUNC(SYSDATE, 'MM') - 1 = TRUNC(SYSDATE, 'Q') - 1 THEN 'Квартал'
+                    ELSE 'Месяц'
+                 END);
+COMMIT;
+
+utils.email(v_proc, v_scri || ' accomplished', 'Andrey_Rozhnov@rgs.ru');
+utils.email(v_proc, v_scri || ' accomplished', 'Anastasiya_Zhukova@rgs.ru');
+utils.email(v_proc, v_scri || ' accomplished', 'Artyom_Sergeev@rgs.ru');  
+
+/*--kms20251112: 
+select DB,
+       NEW_REGIONNAME,
+       PROPERTYFORMNAME,
+       PRODUCT_PROGRAM_TYPE,
+       OBJECTCLASS,
+       is_dead_policy,
+       SALECHANNELFULLNAME_DE,
+       category_id_2020,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 
+            case when kasko_chain_number > 1 then 'Возобновлённый'
+                 else 'Первоначальный'
+            end 
+            ELSE 
+               DECODE (CONTRACTOPTION,
+                  '1', 'Первоначальный',
+                  '2', 'Возобновлённый',
+                  'нд')
+       END as IS_PROLONGATION,
+       sum(EXPOSURE) EXPOSURE,
+       sum(AC_EXPOSURE) AC_EXPOSURE,
+       sum(AC_EXPOSURE60) AC_EXPOSURE60,
+       sum(DE_ZPOP60_INITIAL) DE_ZPOP60_INITIAL,
+       sum(POLICYCOUNT) POLICYCOUNT,
+       sum(WP) WP,
+       sum(WP60) WP60,
+       sum(OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(RETURNPREMIUM) RETURNPREMIUM,
+       sum(LIABILITY) LIABILITY
+from
+(-- структуры GWPC совпадают с АРМ
+
+select --+ parallel(krf 8) 
+       'GWPC' DB,
+       KRF.NEW_REGIONNAME,
+       KRF.PROPERTYFORMNAME,
+       KRF.PRODUCT_PROGRAM_TYPE,
+       KRF.OBJECTCLASS,
+       krf.is_dead_policy,
+       CH.SALECHANNELFULLNAME_DE,
+       krf.category_id_2020, --gw_form1.category_id_2020,
+       to_char(KRF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(KRF.T1, 'yyyyq') YEAR_QUARTER,
+       krf.KASKO_CHAIN_NUMBER,
+       krf.CONTRACTOPTION,
+       sum(krf.EXPOSURE) EXPOSURE,
+       sum(krf.AC_EXPOSURE) AC_EXPOSURE,
+       sum(krf.AC_EXPOSURE60) AC_EXPOSURE60,
+       sum(KRF.DE_ZPOP60_INITIAL - KRF.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       sum(KRF.POLICYCOUNT) POLICYCOUNT,
+       sum(KRF.WRITTENPREMIUM) WP,
+       sum(KRF.WRITTENPREMIUM60) WP60,
+       sum(KRF.OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(KRF.RETURNPREMIUM) RETURNPREMIUM,
+       sum(KRF.LIABILITY) LIABILITY
+from KASKO_GW_RESULT_FORM_ALL_VW_Q krf
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = KRF.SALECHANNEL2008
+  --   left join gw_form1 on gw_form1.objectid = krf.objectid 
+group by KRF.NEW_REGIONNAME,
+         KRF.PROPERTYFORMNAME,
+         KRF.PRODUCT_PROGRAM_TYPE,
+         KRF.OBJECTCLASS,
+         krf.is_dead_policy,
+         CH.SALECHANNELFULLNAME_DE,
+         krf.category_id_2020, --gw_form1.category_id_2020,
+         to_char(KRF.T1, 'yyyymm'),
+         to_char(KRF.T1, 'yyyyq'),
+         krf.KASKO_CHAIN_NUMBER,
+         krf.CONTRACTOPTION
+union all
+select * from(
+select --+ parallel(krf 8) 
+       'АРМ' DB,
+       KRF.NEW_REGIONNAME,
+       KRF.PROPERTYFORMNAME,
+       KRF.PRODUCT_PROGRAM_TYPE,
+       KRF.OBJECTCLASS,
+       krf.is_dead_policy,
+       CH.SALECHANNELFULLNAME_DE,
+       krf.category_id_2020, --arm_form1.category_id_2020,
+       to_char(KRF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(KRF.T1, 'yyyyq') YEAR_QUARTER,
+       krf.KASKO_CHAIN_NUMBER,
+       krf.CONTRACTOPTION,
+       sum(krf.EXPOSURE) EXPOSURE,
+       sum(krf.AC_EXPOSURE) AC_EXPOSURE,
+       sum(krf.AC_EXPOSURE60) AC_EXPOSURE60,
+       sum(KRF.DE_ZPOP60_INITIAL - KRF.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       sum(KRF.POLICYCOUNT) POLICYCOUNT,
+       sum(KRF.WRITTENPREMIUM) WP,
+       sum(KRF.WRITTENPREMIUM60) WP60,
+       sum(KRF.OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(KRF.RETURNPREMIUM) RETURNPREMIUM,
+       sum(KRF.LIABILITY) LIABILITY
+from KASKO_RESULT_FORM_ALL_VW_Q krf
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = KRF.SALECHANNEL2008
+  -- left join arm_form1 on arm_form1.objectid = krf.objectid     
+group by KRF.NEW_REGIONNAME,
+         KRF.PROPERTYFORMNAME,
+         KRF.PRODUCT_PROGRAM_TYPE,
+         KRF.OBJECTCLASS,
+         krf.is_dead_policy,
+         CH.SALECHANNELFULLNAME_DE,
+         krf.category_id_2020, --arm_form1.category_id_2020,
+         to_char(KRF.T1, 'yyyymm'),
+         to_char(KRF.T1, 'yyyyq'),
+         krf.KASKO_CHAIN_NUMBER,
+         krf.CONTRACTOPTION
+)         
+union all
+select * from (
+
+select --+ full(krf) parallel(krf 8)
+      
+       'ЕКИС' as DB, 
+       KRF.NEW_REGIONNAME,
+       KRF.PROPERTYFORMNAME,
+       KRF.PRODUCT_PROGRAM_TYPE,
+       KRF.OBJECTCLASS,
+       krf.is_dead_policy,       
+       CH.SALECHANNELFULLNAME_DE,
+       krf.category_id_2020, -- st_form1.category_id_2020,
+       to_char(KRF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(KRF.T1, 'yyyyq') YEAR_QUARTER,
+       krf.KASKO_CHAIN_NUMBER,
+       krf.CONTRACTOPTION,
+       sum(krf.EXPOSURE) EXPOSURE,
+       sum(krf.AC_EXPOSURE) AC_EXPOSURE,
+       sum(krf.AC_EXPOSURE60) AC_EXPOSURE60,
+       sum(KRF.DE_ZPOP60_INITIAL - KRF.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       sum(KRF.POLICYCOUNT) POLICYCOUNT,
+       sum(KRF.WRITTENPREMIUM) WP,
+       sum(KRF.WRITTENPREMIUM60) WP60,
+       sum(KRF.OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(KRF.RETURNPREMIUM) RETURNPREMIUM,
+       sum(KRF.LIABILITY) LIABILITY
+from KASKO_ST_RESULT_FORM_ALL_VW_Q krf
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = KRF.SALECHANNEL2008
+  -- left join st_form1 on st_form1.objectid = krf.objectid
+group by 
+         KRF.NEW_REGIONNAME,
+         KRF.PROPERTYFORMNAME,
+         KRF.PRODUCT_PROGRAM_TYPE,
+         KRF.OBJECTCLASS,
+         krf.is_dead_policy,
+         CH.SALECHANNELFULLNAME_DE,
+         krf.category_id_2020, -- st_form1.category_id_2020,
+         to_char(KRF.T1, 'yyyymm'),
+         to_char(KRF.T1, 'yyyyq'),
+         krf.KASKO_CHAIN_NUMBER,
+         krf.CONTRACTOPTION
+ )
+)
+group by DB,
+         NEW_REGIONNAME,
+         PROPERTYFORMNAME,
+         PRODUCT_PROGRAM_TYPE,
+         OBJECTCLASS,
+         is_dead_policy,
+         SALECHANNELFULLNAME_DE,
+         category_id_2020,
+         YEAR_MONTH,
+         YEAR_QUARTER,
+         CASE WHEN PROPERTYFORMNAME = 'Физическое лицо' THEN 
+            case when kasko_chain_number > 1 then 'Возобновлённый'
+                 else 'Первоначальный'
+            end 
+            ELSE 
+               DECODE (CONTRACTOPTION,
+                  '1', 'Первоначальный',
+                  '2', 'Возобновлённый',
+                  'нд')
+         END --as IS_PROLONGATION
+order by 1, 2, 3, 4;
+utils.logz(v_proc, v_scri, 'считали с вьюх квартал/не квартал экспозицию');
+--utils.logz(v_proc, v_scri, 'если закрываем квартал');
+COMMIT;
+--kms20251112: */
+
+/*
+ELSE
+  
+--если закрываем НЕ квартал:  
+insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_KASKO
+select DB,
+       NEW_REGIONNAME,
+       PROPERTYFORMNAME,
+       PRODUCT_PROGRAM_TYPE,
+       OBJECTCLASS,
+       is_dead_policy,
+       SALECHANNELFULLNAME_DE,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       sum(EXPOSURE) EXPOSURE,
+       sum(DE_ZPOP60_INITIAL) DE_ZPOP60_INITIAL,
+       sum(POLICYCOUNT) POLICYCOUNT,
+       sum(WP) WP,
+       sum(WP60) WP60,
+       sum(OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(RETURNPREMIUM) RETURNPREMIUM,
+       sum(LIABILITY) LIABILITY
+from
+(
+select --+ parallel(krf 8) 
+       'АРМ' DB,
+       KRF.NEW_REGIONNAME,
+       KRF.PROPERTYFORMNAME,
+       KRF.PRODUCT_PROGRAM_TYPE,
+       KRF.OBJECTCLASS,
+       krf.is_dead_policy,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(KRF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(KRF.T1, 'yyyyq') YEAR_QUARTER,
+       sum(KRF.AC_EXPOSURE60) EXPOSURE,
+       sum(KRF.DE_ZPOP60_INITIAL - KRF.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       sum(KRF.POLICYCOUNT) POLICYCOUNT,
+       sum(KRF.WRITTENPREMIUM) WP,
+       sum(KRF.WRITTENPREMIUM60) WP60,
+       sum(KRF.OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(KRF.RETURNPREMIUM) RETURNPREMIUM,
+       sum(KRF.LIABILITY) LIABILITY
+from KASKO_RESULT_FORM_ALL krf
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = KRF.SALECHANNEL2008
+group by KRF.NEW_REGIONNAME,
+         KRF.PROPERTYFORMNAME,
+         KRF.PRODUCT_PROGRAM_TYPE,
+         KRF.OBJECTCLASS,
+         krf.is_dead_policy,
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(KRF.T1, 'yyyymm'),
+         to_char(KRF.T1, 'yyyyq')
+union all
+select --+ full(krf) parallel(krf 8)
+       case when KRF.NEW_REGIONNAME like 'ТЭК%'
+            then 'КС'
+            else 'ЕКИС'
+        end DB,
+       KRF.NEW_REGIONNAME,
+       KRF.PROPERTYFORMNAME,
+       KRF.PRODUCT_PROGRAM_TYPE,
+       KRF.OBJECTCLASS,
+       krf.is_dead_policy,
+       CH.SALECHANNELFULLNAME_DE,
+       to_char(KRF.T1, 'yyyymm') YEAR_MONTH,
+       to_char(KRF.T1, 'yyyyq') YEAR_QUARTER,
+       sum(KRF.AC_EXPOSURE60) EXPOSURE,
+       sum(KRF.DE_ZPOP60_INITIAL - KRF.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       sum(KRF.POLICYCOUNT) POLICYCOUNT,
+       sum(KRF.WRITTENPREMIUM) WP,
+       sum(KRF.WRITTENPREMIUM60) WP60,
+       sum(KRF.OBJECTQUANTITY) OBJECTQUANTITY,
+       sum(KRF.RETURNPREMIUM) RETURNPREMIUM,
+       sum(KRF.LIABILITY) LIABILITY
+from KASKO_ST_RESULT_FORM_ALL krf
+     left join DICTSALECHANNELTYPE2008 ch on CH.SALE_CHANNEL_TYPE2008_ID = KRF.SALECHANNEL2008
+group by case when KRF.NEW_REGIONNAME like 'ТЭК%'
+              then 'КС'
+              else 'ЕКИС'
+          end,
+         KRF.NEW_REGIONNAME,
+         KRF.PROPERTYFORMNAME,
+         KRF.PRODUCT_PROGRAM_TYPE,
+         KRF.OBJECTCLASS,
+         krf.is_dead_policy,
+         CH.SALECHANNELFULLNAME_DE,
+         to_char(KRF.T1, 'yyyymm'),
+         to_char(KRF.T1, 'yyyyq')
+)
+group by DB,
+         NEW_REGIONNAME,
+         PROPERTYFORMNAME,
+         PRODUCT_PROGRAM_TYPE,
+         OBJECTCLASS,
+         is_dead_policy,
+         SALECHANNELFULLNAME_DE,
+         YEAR_MONTH,
+         YEAR_QUARTER
+order by 1, 2, 3, 4;
+utils.logz(v_proc, v_scri, 'если закрываем НЕ квартал');
+COMMIT;
+
+END IF;
+
+*/
+
+
+EXCEPTION  when others then  utils.logz(v_proc, v_scri, sqlerrm || chr(10) || chr(13) || dbms_utility.format_error_backtrace || chr(10) || chr(13) || DBMS_UTILITY.format_call_stack );
+RAISE;
+END;--XLS_EXPOSISION_PREMIUM_KASKO
+--2592secs
