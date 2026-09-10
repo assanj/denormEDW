@@ -1,129 +1,131 @@
--- DROP FUNCTION actuary.glm_norma(_numeric, _numeric, _numeric, _numeric, int4, int4);
+PROCEDURE XLS_EXPOSISION_PREMIUM_KASKO_O is
+-- запускаем только после "Сформированных основных форм" и "Рассчитанного агрегата" по КАСКО
+-- в "Актуарном отчетном модуле" + GWPC Каско!!!,
+-- результат вставляем на соответствующий лист в xlsb "YYYY-MM-DD - Экспозиция и ЗП по ОСАГО и КАСКО.xlsb"
 
-CREATE OR REPLACE FUNCTION actuary.glm_norma(
-    K1 numeric[],        -- VBA: K1() As Double 'текущий вектор коэффициентов по месяцам действия
-    tempK1 numeric[],    -- VBA: tempK1() As Double 'предыдущий вектор коэффициентов для проверки сходимости
-    K2 numeric[],        -- VBA: K2() As Double 'текущий вектор коэффициентов по календарным месяцам
-    tempK2 numeric[],    -- VBA: tempK2() As Double 'предыдущий вектор коэффициентов для проверки сходимости
-    N1 integer,          -- VBA: N1 As Integer 'количество групп по месяцам действия
-    N2 integer           -- VBA: N2 As Integer 'количество групп по календарным месяцам
-)
- RETURNS numeric
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    -- =====================================================
-    -- ОБЪЯВЛЕНИЕ ПЕРЕМЕННЫХ (Dim ... As ...)
-    -- Соответствие VBA: Dim s1, s2 As Double
-    -- =====================================================
-    s1 NUMERIC := 0;     -- VBA: s1 As Double 'сумма квадратов разностей для K1
-    s2 NUMERIC := 0;     -- VBA: s2 As Double 'сумма квадратов разностей для K2
-    i INTEGER;           -- VBA: i As Integer 'счетчик для цикла
-    
-BEGIN
-    -- =====================================================
-    -- ПРОВЕРКА ВХОДНЫХ ДАННЫХ
-    -- VBA: If IsEmpty(A) Or IsEmpty(tempA) Or IsEmpty(B) Or IsEmpty(tempB) Then
-    -- =====================================================
-    
-    -- VBA: If ... Then Exit Function
-    IF K1 IS NULL OR tempK1 IS NULL OR K2 IS NULL OR tempK2 IS NULL THEN
-        RETURN 1;  -- VBA: возвращаем максимальную ошибку
-    END IF;
-    
-    -- =====================================================
-    -- ВЫЧИСЛЕНИЕ СУММЫ КВАДРАТОВ РАЗНОСТЕЙ ДЛЯ K1
-    -- VBA: For i = 0 To N1 - 1
-    -- VBA:     s1 = s1 + (A(i) - tempA(i)) ^ 2
-    -- VBA: Next i
-    --
-    -- МАТЕМАТИКА:
-    -- s1 = Σ(i=1..N1) (K1[i] - tempK1[i])²
-    --
-    -- Это сумма квадратов изменений коэффициентов K1 между итерациями.
-    -- tempK1 - это значения K1 с предыдущей итерации.
-    -- Если разница маленькая, значит K1 стабилизировался.
-    --
-    -- В методе максимального правдоподобия мы ищем такие K1 и K2,
-    -- которые максимизируют функцию правдоподобия. На каждой итерации
-    -- мы обновляем K1 и K2, приближаясь к оптимальному решению.
-    -- s1 показывает, насколько изменился K1 за одну итерацию.
-    -- =====================================================
-    FOR i IN 1..N1 LOOP
-        -- VBA: проверяем, что индекс существует в обоих массивах
-        IF i <= array_length(K1, 1) AND i <= array_length(tempK1, 1) THEN
-            -- VBA: s1 = s1 + (A(i) - tempA(i)) ^ 2
-            s1 := s1 + (COALESCE(K1[i], 0) - COALESCE(tempK1[i], 0)) ^ 2;
-        END IF;
-    END LOOP;
-    
-    -- =====================================================
-    -- ВЫЧИСЛЕНИЕ СУММЫ КВАДРАТОВ РАЗНОСТЕЙ ДЛЯ K2
-    -- VBA: For i = 0 To N2 - 1
-    -- VBA:     s2 = s2 + (B(i) - tempB(i)) ^ 2
-    -- VBA: Next i
-    --
-    -- МАТЕМАТИКА:
-    -- s2 = Σ(j=1..N2) (K2[j] - tempK2[j])²
-    --
-    -- Это сумма квадратов изменений коэффициентов K2 между итерациями.
-    -- tempK2 - это значения K2 с предыдущей итерации.
-    -- Аналогично s1, s2 показывает стабилизацию K2.
-    --
-    -- Вместе s1 и s2 дают полную картину изменения всех коэффициентов.
-    -- =====================================================
-    FOR i IN 1..N2 LOOP
-        -- VBA: проверяем, что индекс существует в обоих массивах
-        IF i <= array_length(K2, 1) AND i <= array_length(tempK2, 1) THEN
-            -- VBA: s2 = s2 + (B(i) - tempB(i)) ^ 2
-            s2 := s2 + (COALESCE(K2[i], 0) - COALESCE(tempK2[i], 0)) ^ 2;
-        END IF;
-    END LOOP;
-    
-    -- =====================================================
-    -- ВОЗВРАТ ЕВКЛИДОВОЙ НОРМЫ (РАССТОЯНИЯ)
-    -- VBA: norma = Sqr(s1 + s2)
-    --
-    -- МАТЕМАТИКА:
-    -- dist = √(s1 + s2) = √( Σ(K1[i]-tempK1[i])² + Σ(K2[j]-tempK2[j])² )
-    --
-    -- Это евклидова норма (евклидово расстояние) между двумя точками
-    -- в (N1+N2)-мерном пространстве коэффициентов.
-    --
-    -- Точка 1: (K1[1], K1[2], ..., K1[N1], K2[1], K2[2], ..., K2[N2])
-    -- Точка 2: (tempK1[1], tempK1[2], ..., tempK1[N1], tempK2[1], tempK2[2], ..., tempK2[N2])
-    --
-    -- dist - это расстояние между текущим и предыдущим решением.
-    --
-    -- КРИТЕРИЙ ОСТАНОВКИ:
-    -- Если dist < eps (заданная точность, обычно 0.000001),
-    -- то коэффициенты перестали существенно меняться,
-    -- значит решение сошлось (найдена точка максимума правдоподобия).
-    --
-    -- ГЕОМЕТРИЧЕСКАЯ ИНТЕРПРЕТАЦИЯ:
-    -- Представьте, что мы идем по поверхности функции правдоподобия
-    -- к ее максимуму. На каждом шаге мы делаем шаг (K1, K2).
-    -- dist - это длина нашего шага. Когда шаги становятся очень маленькими
-    -- (меньше eps), мы достигли вершины (максимума).
-    --
-    -- СВЯЗЬ С МЕТОДОМ МАКСИМАЛЬНОГО ПРАВДОПОДОБИЯ:
-    -- В GLM с распределением Пуассона мы максимизируем функцию:
-    -- L = ∏(i,j) exp(-V(i,j)*K1(i)*K2(j)) * (V(i,j)*K1(i)*K2(j))^S(i,j) / S(i,j)!
-    --
-    -- Логарифмическая функция правдоподобия:
-    -- l = Σ(i,j) [ -V(i,j)*K1(i)*K2(j) + S(i,j)*ln(V(i,j)*K1(i)*K2(j)) - ln(S(i,j)!) ]
-    --
-    -- Градиент (производные) этой функции дает систему уравнений,
-    -- которую мы решаем итерационно. dist показывает, насколько мы
-    -- приблизились к точке, где градиент равен нулю (максимум).
-    -- =====================================================
-    RETURN SQRT(s1 + s2);  -- VBA: norma = Sqr(s1 + s2)
-    
-END;
-$function$
-;
+  v_proc varchar2(128) := 'XLS_EXPOSISION_PREMIUM_KASKO_O';
+  v_scri varchar2(128) := 'YYYY-MM-DD - Экспозиция и ЗП по КАСКО для Ольги.sql';
 
--- Permissions
+begin
+utils.logz(v_proc, v_scri, 'START');
 
-ALTER FUNCTION actuary.glm_norma(_numeric, _numeric, _numeric, _numeric, int4, int4) OWNER TO mskazakov;
-GRANT ALL ON FUNCTION actuary.glm_norma(_numeric, _numeric, _numeric, _numeric, int4, int4) TO mskazakov;
+execute immediate 'truncate table XLS_EXPOSISION_PREMIUM_KASKO_O';
+
+-- собираем и агрегируем экспозицию по GWPC+АРМ+ЕКИС:
+
+-- если закрываем квартал:
+if trunc(sysdate,'MM')-1 = trunc(sysdate,'q')-1 then
+   utils.logz(v_proc, v_scri, 'квартал');
+ELSE
+   utils.logz(v_proc, v_scri, 'месяц');
+END IF;
+
+insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_KASKO_O
+SELECT /*+ parallel(krf 16) */
+       krf.db,
+       krf.NEW_REGIONNAME,
+       krf.PROPERTYFORMNAME,
+       krf.PRODUCT_PROGRAM_TYPE,
+       krf.OBJECTCLASS,
+       krf.is_dead_policy,
+       CH.SALECHANNELFULLNAME_DE,
+       krf.category_id_2020,
+       to_char(krf.T1, 'yyyymm') YEAR_MONTH,
+       to_char(krf.T1, 'yyyyq') YEAR_QUARTER,
+       CASE WHEN krf.PROPERTYFORMNAME = 'Физическое лицо' THEN
+            CASE WHEN krf.kasko_chain_number > 1 THEN 'Возобновлённый'
+                 ELSE 'Первоначальный'
+            END
+            ELSE
+            CASE krf.CONTRACTOPTION
+                  WHEN '1' THEN 'Первоначальный'
+                  WHEN '2' THEN 'Возобновлённый'
+                  ELSE 'нд'
+            END
+       END as IS_PROLONGATION,
+       SUM(krf.EXPOSURE) EXPOSURE,
+       SUM(krf.AC_EXPOSURE) AC_EXPOSURE,
+       SUM(krf.AC_EXPOSURE60) AC_EXPOSURE60,
+       SUM(krf.DE_ZPOP60_INITIAL - krf.RETURNPREMIUM) DE_ZPOP60_INITIAL,
+       SUM(krf.POLICYCOUNT) POLICYCOUNT,
+       SUM(krf.WRITTENPREMIUM) WP,
+       SUM(krf.WRITTENPREMIUM60) WP60,
+       SUM(krf.OBJECTQUANTITY) OBJECTQUANTITY,
+       SUM(krf.RETURNPREMIUM) RETURNPREMIUM,
+       SUM(krf.LIABILITY) LIABILITY
+FROM KASKO_RESULT_FULL_PARTS krf
+LEFT JOIN DICTSALECHANNELTYPE2008 ch ON CH.SALE_CHANNEL_TYPE2008_ID = krf.SALECHANNEL2008
+WHERE krf.part = CASE
+                    WHEN TRUNC(SYSDATE, 'MM') - 1 = TRUNC(SYSDATE, 'Q') - 1 THEN 'q'  -- квартал
+                    ELSE 'm'  -- месяц
+                 END
+GROUP BY
+    krf.db,
+    krf.NEW_REGIONNAME,
+    krf.PROPERTYFORMNAME,
+    krf.PRODUCT_PROGRAM_TYPE,
+    krf.OBJECTCLASS,
+    krf.is_dead_policy,
+    CH.SALECHANNELFULLNAME_DE,
+    krf.category_id_2020,
+    to_char(krf.T1, 'yyyymm'),
+    to_char(krf.T1, 'yyyyq'),
+    CASE WHEN krf.PROPERTYFORMNAME = 'Физическое лицо' THEN
+         CASE WHEN krf.kasko_chain_number > 1 THEN 'Возобновлённый'
+              ELSE 'Первоначальный'
+         END
+         ELSE
+         CASE krf.CONTRACTOPTION
+               WHEN '1' THEN 'Первоначальный'
+               WHEN '2' THEN 'Возобновлённый'
+               ELSE 'нд'
+         END
+    END
+ORDER BY 1, 2, 3, 4;
+
+utils.logz(v_proc, v_scri, 'END. считали экспозицию по Каско за '||CASE
+                    WHEN TRUNC(SYSDATE, 'MM') - 1 = TRUNC(SYSDATE, 'Q') - 1 THEN 'Квартал'
+                    ELSE 'Месяц'
+                 END);
+COMMIT;
+
+-- вставляем данные прошлых периодов из ранее расчитанного агрегата
+-- (по аналогии с OSAGO_O):
+insert --+ APPEND
+  into XLS_EXPOSISION_PREMIUM_KASKO_O
+select
+       DB,
+       NEW_REGIONNAME,
+       PROPERTYFORMNAME,
+       PRODUCT_PROGRAM_TYPE,
+       OBJECTCLASS,
+       IS_DEAD_POLICY,
+       SALECHANNELFULLNAME_DE,
+       CATEGORY_ID_2020,
+       YEAR_MONTH,
+       YEAR_QUARTER,
+       'нд' as IS_PROLONGATION,
+       EXPOSURE,
+       AC_EXPOSURE,
+       AC_EXPOSURE60,
+       DE_ZPOP60_INITIAL,
+       POLICYCOUNT,
+       WP,
+       WP60,
+       OBJECTQUANTITY,
+       RETURNPREMIUM,
+       LIABILITY
+from XLS_EXPOSISION_PREMIUM_KASKO16 ex16
+ where ex16.YEAR_QUARTER < (select min(YEAR_QUARTER) from XLS_EXPOSISION_PREMIUM_KASKO_O);
+
+utils.logz(v_proc, v_scri, 'данные прошлых периодов');
+COMMIT;
+
+utils.logz(v_proc, v_scri, 'END');
+
+utils.email(v_proc, v_scri || ' accomplished', 'Anastasiya_Zhukova@rgs.ru');
+
+EXCEPTION  when others then  utils.logz(v_proc, v_scri, sqlerrm || chr(10) || chr(13) || dbms_utility.format_error_backtrace || chr(10) || chr(13) || DBMS_UTILITY.format_call_stack );
+RAISE;
+END;--XLS_EXPOSISION_PREMIUM_KASKO_O
