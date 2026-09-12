@@ -90,3 +90,12 @@ WHERE parameter IN ('NLS_CHARACTERSET','NLS_NCHAR_CHARACTERSET');
 
 SELECT userenv('language') FROM dual;
 RUSSIAN_AMERICA.CL8MSWIN1251
+
+
+
+SELECT 
+    sale_channel_mk_name,
+    CONVERT(sale_channel_mk_name, 'AL32UTF8', 'CL8MSWIN1251') AS try1,
+    CONVERT(sale_channel_mk_name, 'AL16UTF16', 'CL8MSWIN1251') AS try2
+FROM a_teat_tr_atr_gw t
+WHERE ROWNUM <= 5;
