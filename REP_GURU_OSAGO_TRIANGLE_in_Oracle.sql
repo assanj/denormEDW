@@ -35,3 +35,25 @@ SELECT
     DUMP(sale_channel_mk_name, 1016)                                  AS bytes_hex
 FROM a_teat_tr_atr_gw t
 WHERE ROWNUM <= 20;
+
+
+SELECT 
+    sale_channel_mk_name,
+    DUMP(sale_channel_mk_name, 1016) AS bytes_hex,
+    LENGTH(sale_channel_mk_name)    AS len_chars,
+    LENGTHB(sale_channel_mk_name)   AS len_bytes,
+    ASCIISTR(sale_channel_mk_name)  AS ascii_repr
+FROM a_teat_tr_atr_gw t
+WHERE ROWNUM <= 5;
+
+
+
+SELECT parameter, value 
+FROM nls_database_parameters 
+WHERE parameter IN ('NLS_CHARACTERSET','NLS_NCHAR_CHARACTERSET');
+
+SELECT parameter, value 
+FROM nls_session_parameters 
+WHERE parameter IN ('NLS_CHARACTERSET','NLS_NCHAR_CHARACTERSET');
+
+SELECT userenv('language') FROM dual;
