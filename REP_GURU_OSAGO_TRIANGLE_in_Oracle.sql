@@ -36,7 +36,12 @@ SELECT
 FROM a_teat_tr_atr_gw t
 WHERE ROWNUM <= 20;
 
-
+SELECT 
+    sale_channel_mk_name,
+    CONVERT(sale_channel_mk_name, 'AL32UTF8', 'CL8MSWIN1251') AS try1,
+    CONVERT(sale_channel_mk_name, 'AL16UTF16', 'CL8MSWIN1251') AS try2
+FROM a_teat_tr_atr_gw t
+WHERE ROWNUM <= 5;
 SELECT 
     sale_channel_mk_name,
     DUMP(sale_channel_mk_name, 1016) AS bytes_hex,
